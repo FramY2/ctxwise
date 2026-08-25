@@ -172,6 +172,36 @@ describe("CtxWise CLI", () => {
     ).toEqual(["project/AGENTS.md"]);
   });
 
+  it("shows an immediate local context snapshot without a model call", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-snapshot-cli-"));
+    created.push(root);
+    const codexHome = join(root, ".codex");
+    const projectRoot = join(root, "repo");
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+    ]);
+    await writeFile(join(projectRoot, "AGENTS.md"), "project guidance\n");
+
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      [
+        tsx,
+        cli,
+        "snapshot",
+        "--codex-home",
+        codexHome,
+        "--project",
+        projectRoot,
+      ],
+      { cwd: projectRoot, timeout: 10_000 },
+    );
+
+    expect(stdout).toContain("CtxWise snapshot");
+    expect(stdout).toContain("known startup tokens (estimated)");
+    expect(stdout).toContain("project/AGENTS.md");
+  });
+
   it("compares two capability locks and can fail a CI check on drift", async () => {
     const root = await mkdtemp(join(tmpdir(), "ctxwise-drift-cli-"));
     created.push(root);
