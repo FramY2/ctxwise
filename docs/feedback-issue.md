@@ -1,13 +1,14 @@
 # Reproduce the current CtxWise benchmark and report what you observe
 
-CtxWise v0.3.2 includes a quality-gated Luna/Terra/Sol microbenchmark and a
+CtxWise v0.4.0 includes an immediate local context snapshot plus a
+quality-gated Luna/Terra/Sol microbenchmark and a
 two-turn, single-task community command. We are looking for independent
 reproductions, regressions, and cases where reducing discovered context changes
 an answer.
 
 ## Two-turn reproduction
 
-1. Clone <https://github.com/FramY2/ctxwise> and check out tag `v0.3.2`.
+1. Clone <https://github.com/FramY2/ctxwise> and check out tag `v0.4.0`.
 2. Install Node.js 20+ and a working Codex CLI.
 3. Run `npm ci`, then `npm run benchmark:quick`.
 4. The command may consume two Codex turns. It prints a new `community-*` ID

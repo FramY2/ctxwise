@@ -5,6 +5,22 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-26
+
+### Added
+
+- Added `ctxwise snapshot`, a one-command, local-only context health check that
+  ranks known startup contributors, preserves unmeasured surfaces as unknown,
+  and recommends safe next actions without changing Codex configuration.
+- Added unit and process-level regression coverage for ranking, evidence labels,
+  privacy-safe output, and the no-model-call workflow.
+
+### Changed
+
+- Updated the README and plugin starter prompt around immediate context
+  visibility rather than asking new users to begin with a benchmark.
+- Updated Vitest and its V8 coverage provider to 4.1.11.
+
 ## [0.3.2] - 2026-08-19
 
 ### Fixed

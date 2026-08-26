@@ -35,6 +35,32 @@ and has no telemetry.
 
 > Community project. Not affiliated with or endorsed by OpenAI.
 
+## See what Codex carries in one command
+
+![CtxWise snapshot showing ranked local Codex context contributors](assets/brand/ctxwise-snapshot.svg)
+
+```shell
+npx @framy2/ctxwise snapshot
+```
+
+`snapshot` runs locally and makes no model or API call. It shows the largest
+known startup contributors, labels configuration and MCP surfaces it cannot
+measure, and suggests the next safe action. It never reads session transcripts
+or prints configuration values.
+
+```text
+CtxWise snapshot · attention · ~3,738 known startup tokens (estimated)
+2 guidance files · 41 skill descriptions · 10 plugins · 1 MCP server
+
+Largest known contributors:
+- ~299 · guidance · codex-home/AGENTS.md
+- ~170 · guidance · project/AGENTS.md
+- ~145 · skill discovery · imagegen
+
+7 config/profile sources and 1 MCP tool-schema surface are unmeasured;
+unknown is not treated as zero.
+```
+
 ## See it in 20 seconds
 
 [![CtxWise short product demo](benchmarks/demo/ctxwise-demo.gif)](benchmarks/demo/ctxwise-demo.mp4)
@@ -91,7 +117,7 @@ Clone the repository and run one explicit baseline/optimized pair:
 ```shell
 git clone https://github.com/FramY2/ctxwise.git
 cd ctxwise
-git checkout v0.3.2
+git checkout v0.4.0
 npm ci
 npm run benchmark:quick
 ```
@@ -120,17 +146,18 @@ CtxWise does that glue work without becoming another chat wrapper.
 
 ## Features
 
-| Command           | What it does                                                                           | Network/model call       |
-| ----------------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| `ctxwise audit`   | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs | None                     |
-| `ctxwise map`     | Renders a bounded Mermaid map of context sources and discovery overhead                | None                     |
-| `ctxwise xray`    | Summarizes model-visible prompt JSON without echoing its text                          | None                     |
-| `ctxwise profile` | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups      | None                     |
-| `ctxwise lock`    | Hashes a redacted capability surface for reproducibility                               | None                     |
-| `ctxwise drift`   | Compares a capability lock with a file or live setup; can fail CI on drift             | None                     |
-| `ctxwise quota`   | Reads the current plan and quota window through local Codex app-server                 | Codex account read only  |
-| `ctxwise receipt` | Calculates a receipt from saved `codex exec --json` usage                              | None                     |
-| `ctxwise run`     | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray              | The requested Codex turn |
+| Command            | What it does                                                                           | Network/model call       |
+| ------------------ | -------------------------------------------------------------------------------------- | ------------------------ |
+| `ctxwise snapshot` | Ranks known context contributors, coverage gaps, and safe next actions                 | None                     |
+| `ctxwise audit`    | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs | None                     |
+| `ctxwise map`      | Renders a bounded Mermaid map of context sources and discovery overhead                | None                     |
+| `ctxwise xray`     | Summarizes model-visible prompt JSON without echoing its text                          | None                     |
+| `ctxwise profile`  | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups      | None                     |
+| `ctxwise lock`     | Hashes a redacted capability surface for reproducibility                               | None                     |
+| `ctxwise drift`    | Compares a capability lock with a file or live setup; can fail CI on drift             | None                     |
+| `ctxwise quota`    | Reads the current plan and quota window through local Codex app-server                 | Codex account read only  |
+| `ctxwise receipt`  | Calculates a receipt from saved `codex exec --json` usage                              | None                     |
+| `ctxwise run`      | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray              | The requested Codex turn |
 
 ## Cost honesty by design
 
@@ -153,6 +180,7 @@ Requires Node.js 20 or newer and a working Codex CLI installation.
 ```shell
 npm install --global @framy2/ctxwise
 ctxwise doctor
+ctxwise snapshot
 ctxwise audit
 ctxwise map --out ctxwise-context.mmd
 ctxwise lock

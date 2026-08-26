@@ -12,6 +12,7 @@ estimated, and unknown measurements.
 
 1. Run `ctxwise doctor` when availability is uncertain.
 2. Select the narrowest command:
+   - `ctxwise snapshot` for an immediate ranked context health check and safe next actions.
    - `ctxwise audit --json` for config, guidance, skills, agents, and MCP inventory.
    - `ctxwise map --out ctxwise-context.mmd` for a local visual context map.
    - `ctxwise xray <prompt-input.json> --json` for a privacy-safe prompt breakdown.

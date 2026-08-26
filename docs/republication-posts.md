@@ -8,6 +8,21 @@ Verify every URL before sending. Automation must not press submit.
 Primary CTA: one independent two-turn reproduction in
 [Issue #1](https://github.com/FramY2/ctxwise/issues/1).
 
+## v0.4.0 utility-first update
+
+Use this for release follow-ups instead of repeating the benchmark-first copy:
+
+> CtxWise v0.4.0 now answers the smallest useful question in one local command:
+> what is Codex carrying before this task?
+>
+> `npx @framy2/ctxwise snapshot`
+>
+> It ranks known guidance and skill-discovery contributors, keeps config and MCP
+> schema coverage gaps explicitly unknown, suggests safe next actions, calls no
+> model/API, uploads nothing, and changes no configuration.
+>
+> Example and source: https://github.com/FramY2/ctxwise#see-what-codex-carries-in-one-command
+
 Already published — do not repost these as if they were new:
 
 - Show HN: <https://news.ycombinator.com/item?id=49238209>

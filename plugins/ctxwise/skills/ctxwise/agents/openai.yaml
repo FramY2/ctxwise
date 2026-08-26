@@ -1,6 +1,6 @@
 interface:
   display_name: "CtxWise"
-  short_description: "Audit, lock, and monitor Codex context"
-  default_prompt: "Use $ctxwise to audit my Codex context and explain the safest improvements."
+  short_description: "See what Codex carries before a task"
+  default_prompt: "Use $ctxwise to show my immediate context snapshot and explain the safest improvement."
 policy:
   allow_implicit_invocation: false

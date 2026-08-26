@@ -29,6 +29,12 @@ promised until their tests and compatibility gates land.
   selection, fail-closed scoped ledgers, consistent denominators, and the
   zero-argument `benchmark:quick` smoke test.
 
+## v0.4 — shipped in this repository
+
+- **One-command context snapshot**: rank known guidance and skill-discovery
+  contributors, preserve unmeasured config/MCP surfaces as unknown, and suggest
+  safe next actions without a model call or configuration write.
+
 ## Candidate v0.2
 
 - **Preflight range**: predict context and credit range before a turn, calibrated

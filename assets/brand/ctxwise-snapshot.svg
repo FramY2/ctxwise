@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">CtxWise one-command Codex context snapshot</title>
+  <desc id="desc">A terminal card showing estimated known startup tokens, ranked guidance and skill contributors, and explicit unknown surfaces.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100d1d"/>
+      <stop offset="1" stop-color="#241942"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8b73ff"/>
+      <stop offset="1" stop-color="#43e7c4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <circle cx="1080" cy="80" r="210" fill="#7657ff" opacity=".13"/>
+  <text x="72" y="78" fill="#a99cff" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="4">CTXWISE</text>
+  <text x="72" y="128" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="38" font-weight="750">See what Codex carries before a task.</text>
+  <text x="72" y="165" fill="#aaa4b8" font-family="Segoe UI,Arial,sans-serif" font-size="20">Local. Read-only. No model or API call.</text>
+  <rect x="72" y="205" width="1056" height="354" rx="18" fill="#090812" stroke="#40365e" stroke-width="2"/>
+  <circle cx="104" cy="235" r="6" fill="#ff6b7a"/><circle cx="126" cy="235" r="6" fill="#ffd166"/><circle cx="148" cy="235" r="6" fill="#43e7c4"/>
+  <g font-family="Consolas,Menlo,monospace" font-size="18">
+    <text x="104" y="283" fill="#43e7c4">$ npx @framy2/ctxwise snapshot</text>
+    <text x="104" y="327" fill="#fff" font-weight="700">CtxWise snapshot · attention · ~3,738 known startup tokens</text>
+    <text x="104" y="359" fill="#a8a3b3">2 guidance files · 41 skills · 10 plugins · 1 MCP server</text>
+    <text x="104" y="407" fill="#8b73ff">Largest known contributors</text>
+    <text x="104" y="440" fill="#dedbe5">~299  guidance          codex-home/AGENTS.md</text>
+    <text x="104" y="472" fill="#dedbe5">~170  guidance          project/AGENTS.md</text>
+    <text x="104" y="504" fill="#dedbe5">~145  skill discovery   imagegen</text>
+    <text x="104" y="540" fill="#ffd166">Unknown stays unknown: config values and MCP schemas are not guessed.</text>
+  </g>
+  <rect x="72" y="584" width="1056" height="3" rx="2" fill="url(#accent)"/>
+</svg>

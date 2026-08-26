@@ -1,6 +1,6 @@
 {
   "name": "@framy2/ctxwise",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "CtxWise: local-first context observability, drift detection, profiles, and usage receipts for OpenAI Codex.",
   "type": "module",
   "bin": {
@@ -16,6 +16,7 @@
   "files": [
     "dist",
     "data",
+    "assets",
     "plugins",
     "README.md",
     "LICENSE",

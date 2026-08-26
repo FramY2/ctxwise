@@ -75,16 +75,15 @@ estimate and the CLI prints that limitation.
   divide a user-provided subscription price across quality-passing work, but it
   would remain a planning metric, not an OpenAI charge.
 
-## Product and program positioning
+## Product positioning
 
 CtxWise should be described as an observability, safety, and reproducibility tool,
 not a way to evade payment or bypass limits. Efficient context and right-sized
 models reduce waste while making Codex more reliable. OpenAI's own Codex pricing
 guidance recommends smaller models and tighter scope when appropriate.
 
-This positioning cannot guarantee acceptance into any OpenAI program. It does,
-however, avoid the risky framing of “beating quota” and demonstrates engineering
-value beyond a chatbot wrapper.
+This avoids the risky framing of “beating quota” and keeps the product focused
+on engineering value beyond a chatbot wrapper.
 
 ## Sources
 

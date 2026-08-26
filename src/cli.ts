@@ -10,10 +10,7 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import pc from "picocolors";
 
 import { queryAccountSnapshot, type AccountSnapshot } from "./app-server.js";
-import {
-  buildAuditSnapshot,
-  renderAuditSnapshot,
-} from "./audit-summary.js";
+import { buildAuditSnapshot, renderAuditSnapshot } from "./audit-summary.js";
 import { auditCodexSurface, resolveAuditPath } from "./audit.js";
 import { loadPriceCatalog } from "./catalog.js";
 import { resolveCodexInvocation } from "./codex-command.js";
