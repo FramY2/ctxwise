@@ -10,6 +10,10 @@ import { Command, InvalidArgumentError, Option } from "commander";
 import pc from "picocolors";
 
 import { queryAccountSnapshot, type AccountSnapshot } from "./app-server.js";
+import {
+  buildAuditSnapshot,
+  renderAuditSnapshot,
+} from "./audit-summary.js";
 import { auditCodexSurface, resolveAuditPath } from "./audit.js";
 import { loadPriceCatalog } from "./catalog.js";
 import { resolveCodexInvocation } from "./codex-command.js";
@@ -243,6 +247,27 @@ program
         );
       }
     }
+  });
+
+program
+  .command("snapshot")
+  .description(
+    "Show the largest known Codex context contributors and next actions",
+  )
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--top <number>", "Maximum contributors to show", positiveInteger, 5)
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const report = await auditCodexSurface({
+      codexHome: home,
+      ...scope,
+    });
+    const snapshot = buildAuditSnapshot(report, { top: options.top });
+    if (options.json) printJson(snapshot);
+    else process.stdout.write(renderAuditSnapshot(snapshot));
   });
 
 program
