@@ -76,11 +76,11 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
-    "@vitest/coverage-v8": "4.1.11",
-    "prettier": "3.9.6",
-    "tsx": "4.23.12",
+    "@types/node": "26.6.1",
+    "@vitest/coverage-v8": "5.0.1",
+    "prettier": "3.9.7",
+    "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vitest": "4.1.11"
+    "vitest": "5.0.1"
   }
 }
