@@ -1,0 +1,7 @@
+# CtxWise context budget policy. All numbers are estimated known startup tokens.
+version: 1
+maxKnownTokens: 4000
+maxContributorTokens: 1200
+# "warn" preserves visibility without blocking CI; use "fail" only when every
+# unmeasured config/profile or MCP tool-schema surface must be reviewed.
+unknown: warn

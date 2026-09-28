@@ -29,9 +29,9 @@
 </p>
 
 CtxWise is a local-first CLI and Codex plugin for context diagnostics,
-safe profile compilation, drift detection, reproducibility lockfiles, and honest
-post-turn usage receipts. It calls no model of its own, requires no API key,
-and has no telemetry.
+reviewable budget guards, safe profile compilation, drift detection,
+reproducibility lockfiles, and honest post-turn usage receipts. It calls no
+model of its own, requires no API key, and has no telemetry.
 
 > Community project. Not affiliated with or endorsed by OpenAI.
 
@@ -61,6 +61,32 @@ Largest known contributors:
 unknown is not treated as zero.
 ```
 
+## Set a context budget before it becomes a problem
+
+```shell
+npx @framy2/ctxwise budget --max-known-tokens 4000 --fail-on-exceed
+```
+
+`budget` is the CI-ready companion to `snapshot`: it checks the estimated known
+startup total and, optionally, the largest known contributor. It is local-only,
+does not change configuration, and returns exit code `2` only when
+`--fail-on-exceed` finds a blocking result.
+
+For a shared, reviewable threshold, start with
+[`examples/ctxwise.budget.yaml`](https://github.com/FramY2/ctxwise/blob/v0.5.0/examples/ctxwise.budget.yaml) (also included in the npm package):
+
+```shell
+ctxwise budget --policy ctxwise.budget.yaml --fail-on-exceed
+```
+
+Configuration/profile sources and runtime MCP tool schemas stay **unknown**.
+The policy defaults to `unknown: warn`; set `unknown: fail` only when those
+coverage gaps must explicitly block CI. Known token values are estimates, not an
+exact context-window measurement.
+Audit errors are always blocking findings: repair them before trusting a budget
+result. This command checks only the known local startup surface, not the full
+conversation or the model's remaining context window.
+
 ## See it in 20 seconds
 
 [![CtxWise short product demo](benchmarks/demo/ctxwise-demo.gif)](benchmarks/demo/ctxwise-demo.mp4)
@@ -75,6 +101,7 @@ the compact MP4, or use the [square social cut](benchmarks/demo/ctxwise-demo-squ
 | Guess which skills, instructions, plugins, or MCPs load     | A private audit and bounded context map                             |
 | Hand-edit model profiles and hope the change is reversible  | Reviewable YAML, native Codex TOML, dry-runs, and automatic backups |
 | Discover context changes only after a worse or costlier run | A redacted lockfile plus a CI-ready drift check                     |
+| Let context grow until a task slows down or fails           | A local, reviewable budget guard before the task or CI              |
 | Confuse token estimates, subscription quota, and API bills  | Receipts that label exact, estimated, comparison, and unknown data  |
 
 ## Live evidence
@@ -149,6 +176,7 @@ CtxWise does that glue work without becoming another chat wrapper.
 | Command            | What it does                                                                           | Network/model call       |
 | ------------------ | -------------------------------------------------------------------------------------- | ------------------------ |
 | `ctxwise snapshot` | Ranks known context contributors, coverage gaps, and safe next actions                 | None                     |
+| `ctxwise budget`   | Checks estimated known context against command or YAML limits; can gate CI             | None                     |
 | `ctxwise audit`    | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs | None                     |
 | `ctxwise map`      | Renders a bounded Mermaid map of context sources and discovery overhead                | None                     |
 | `ctxwise xray`     | Summarizes model-visible prompt JSON without echoing its text                          | None                     |
@@ -181,6 +209,7 @@ Requires Node.js 20 or newer and a working Codex CLI installation.
 npm install --global @framy2/ctxwise
 ctxwise doctor
 ctxwise snapshot
+ctxwise budget --max-known-tokens 4000
 ctxwise audit
 ctxwise map --out ctxwise-context.mmd
 ctxwise lock

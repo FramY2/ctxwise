@@ -5,6 +5,24 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28
+
+### Added
+
+- Added `ctxwise budget`: a local, strict-YAML or command-line context budget
+  guard for estimated known startup tokens and the largest known contributor.
+- Added an opt-in CI exit status, reviewable policy example, and unit/process
+  coverage for limits, unmeasured surfaces, stable output, and privacy bounds.
+
+### Changed
+
+- Unmeasured config/profile and MCP tool-schema surfaces can be made blocking
+  only with explicit `unknown: fail`; the default continues to warn without
+  treating them as zero.
+- Audit errors produce blocking findings instead of approving an incomplete
+  budget; programmatic limits receive the same validation as YAML policies.
+- Updated the four pending Dependabot groups together, including Vitest 5.
+
 ## [0.4.0] - 2026-08-26
 
 ### Added

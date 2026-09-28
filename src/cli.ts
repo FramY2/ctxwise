@@ -12,6 +12,11 @@ import pc from "picocolors";
 import { queryAccountSnapshot, type AccountSnapshot } from "./app-server.js";
 import { buildAuditSnapshot, renderAuditSnapshot } from "./audit-summary.js";
 import { auditCodexSurface, resolveAuditPath } from "./audit.js";
+import {
+  evaluateContextBudget,
+  parseContextBudgetPolicy,
+  renderContextBudget,
+} from "./budget.js";
 import { loadPriceCatalog } from "./catalog.js";
 import { resolveCodexInvocation } from "./codex-command.js";
 import { renderContextMap } from "./context-map.js";
@@ -67,6 +72,16 @@ function positiveInteger(value: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 100) {
     throw new InvalidArgumentError("Use a positive integer up to 100.");
+  }
+  return parsed;
+}
+
+function positiveTokenLimit(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 100_000_000) {
+    throw new InvalidArgumentError(
+      "Use a positive whole-token limit up to 100,000,000.",
+    );
   }
   return parsed;
 }
@@ -265,6 +280,66 @@ program
     const snapshot = buildAuditSnapshot(report, { top: options.top });
     if (options.json) printJson(snapshot);
     else process.stdout.write(renderAuditSnapshot(snapshot));
+  });
+
+program
+  .command("budget")
+  .description("Check known local context against a reviewable token budget")
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--policy <file>", "Versioned YAML budget policy")
+  .option(
+    "--max-known-tokens <number>",
+    "Maximum estimated known startup tokens",
+    positiveTokenLimit,
+  )
+  .option(
+    "--max-contributor-tokens <number>",
+    "Maximum estimated tokens for the largest known contributor",
+    positiveTokenLimit,
+  )
+  .addOption(
+    new Option(
+      "--unknown <mode>",
+      "How unmeasured surfaces affect the budget",
+    ).choices(["warn", "fail"]),
+  )
+  .option("--json", "Print structured JSON", false)
+  .option(
+    "--fail-on-exceed",
+    "Exit with status 2 for blocking budget findings",
+    false,
+  )
+  .action(async (options) => {
+    const policy = options.policy
+      ? parseContextBudgetPolicy(
+          await readFile(resolve(options.policy), "utf8"),
+        )
+      : undefined;
+    const maxKnownTokens = options.maxKnownTokens ?? policy?.maxKnownTokens;
+    const maxContributorTokens =
+      options.maxContributorTokens ?? policy?.maxContributorTokens;
+    if (maxKnownTokens === undefined && maxContributorTokens === undefined) {
+      throw new Error(
+        "Provide --max-known-tokens, --max-contributor-tokens, or --policy with a numeric limit.",
+      );
+    }
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const audit = await auditCodexSurface({ codexHome: home, ...scope });
+    const report = evaluateContextBudget(
+      buildAuditSnapshot(audit, { top: 1 }),
+      {
+        maxKnownTokens,
+        maxContributorTokens,
+        unknown: options.unknown ?? policy?.unknown ?? "warn",
+      },
+    );
+    if (options.json) printJson(report);
+    else process.stdout.write(renderContextBudget(report));
+    if (options.failOnExceed && report.summary.blocking > 0) {
+      process.exitCode = 2;
+    }
   });
 
 program

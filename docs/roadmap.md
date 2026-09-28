@@ -35,6 +35,12 @@ promised until their tests and compatibility gates land.
   contributors, preserve unmeasured config/MCP surfaces as unknown, and suggest
   safe next actions without a model call or configuration write.
 
+## v0.5 — shipped in this repository
+
+- **Context budget guard**: check estimated known startup context and the
+  largest known contributor against command-line or reviewable strict-YAML
+  limits; CI remains opt-in and unmeasured config/MCP surfaces remain unknown.
+
 ## Candidate v0.2
 
 - **Preflight range**: predict context and credit range before a turn, calibrated

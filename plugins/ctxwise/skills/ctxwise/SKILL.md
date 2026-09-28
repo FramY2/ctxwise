@@ -1,6 +1,6 @@
 ---
 name: ctxwise
-description: Audit and optimize OpenAI Codex context locally, compile model and subagent profiles, detect capability drift, create redacted lockfiles, inspect model-visible prompt structure, and render honest token, credit, quota, or API-cost receipts. Use when the user explicitly invokes CtxWise or asks to run its installed CLI for Codex context, usage, pricing, profile, drift, or reproducibility diagnostics.
+description: Audit and optimize OpenAI Codex context locally, enforce reviewable context budgets, compile model and subagent profiles, detect capability drift, create redacted lockfiles, inspect model-visible prompt structure, and render honest token, credit, quota, or API-cost receipts. Use when the user explicitly invokes CtxWise or asks to run its installed CLI for Codex context, budget, usage, pricing, profile, drift, or reproducibility diagnostics.
 ---
 
 # CtxWise
@@ -13,6 +13,8 @@ estimated, and unknown measurements.
 1. Run `ctxwise doctor` when availability is uncertain.
 2. Select the narrowest command:
    - `ctxwise snapshot` for an immediate ranked context health check and safe next actions.
+   - `ctxwise budget --max-known-tokens 4000` to check an explicit estimated
+     context threshold; add `--fail-on-exceed` only for an intentional CI gate.
    - `ctxwise audit --json` for config, guidance, skills, agents, and MCP inventory.
    - `ctxwise map --out ctxwise-context.mmd` for a local visual context map.
    - `ctxwise xray <prompt-input.json> --json` for a privacy-safe prompt breakdown.
@@ -34,6 +36,8 @@ estimated, and unknown measurements.
 - Add `--api-equivalent` only when the user asks for the comparison. Preserve
   the label `comparison only; not charged`.
 - Keep missing values as `unknown`; never replace them with zero.
+- Treat budget totals as estimated known startup context, not an exact context
+  window. Use `unknown: fail` only when unmeasured surfaces must block CI.
 - Keep aggregate turn input separate from prompt-window occupancy.
 - Do not claim savings without a comparable, quality-passing baseline.
 

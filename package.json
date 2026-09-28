@@ -1,7 +1,7 @@
 {
   "name": "@framy2/ctxwise",
-  "version": "0.4.0",
-  "description": "CtxWise: local-first context observability, drift detection, profiles, and usage receipts for OpenAI Codex.",
+  "version": "0.5.0",
+  "description": "CtxWise: local-first Codex context observability, budget guards, drift detection, profiles, and usage receipts.",
   "type": "module",
   "bin": {
     "ctxwise": "dist/cli.js",
@@ -18,6 +18,7 @@
     "data",
     "assets",
     "plugins",
+    "examples/ctxwise.budget.yaml",
     "README.md",
     "LICENSE",
     "NOTICE"
@@ -71,16 +72,16 @@
   "dependencies": {
     "commander": "15.0.0",
     "picocolors": "1.1.1",
-    "smol-toml": "1.8.0",
-    "yaml": "2.9.0",
-    "zod": "4.4.3"
+    "smol-toml": "1.9.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
-    "@vitest/coverage-v8": "4.1.11",
-    "prettier": "3.9.6",
-    "tsx": "4.23.12",
+    "@types/node": "26.6.1",
+    "@vitest/coverage-v8": "5.0.1",
+    "prettier": "3.9.7",
+    "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vitest": "4.1.11"
+    "vitest": "5.0.1"
   }
 }

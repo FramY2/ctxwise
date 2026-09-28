@@ -34,6 +34,10 @@ service.
 9. **Capability drift guard** compares schema-validated, redacted lockfiles and
    reports additions, removals, and changes deterministically. CI failure is
    explicit through `--fail-on-drift`; prompt history remains out of scope.
+10. **Context budget guard** checks only estimated known startup context and its
+    largest known contributor against explicit limits. Config/profile and MCP
+    tool-schema surfaces stay unknown; they can block CI only through explicit
+    policy. The command does not call a model or write configuration.
 
 ## Non-goals for v0.1
 

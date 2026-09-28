@@ -202,6 +202,91 @@ describe("CtxWise CLI", () => {
     expect(stdout).toContain("project/AGENTS.md");
   });
 
+  it("enforces a local context budget through command flags or a strict YAML policy", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-budget-cli-"));
+    created.push(root);
+    const codexHome = join(root, ".codex");
+    const projectRoot = join(root, "repo");
+    const policyPath = join(root, "ctxwise.budget.yaml");
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+    ]);
+    await writeFile(join(codexHome, "config.toml"), 'model = "gpt-5"\n');
+    await writeFile(join(projectRoot, "AGENTS.md"), "project guidance\n");
+    await writeFile(
+      policyPath,
+      "version: 1\nmaxKnownTokens: 100\nunknown: warn\n",
+    );
+
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      [
+        tsx,
+        cli,
+        "budget",
+        "--codex-home",
+        codexHome,
+        "--project",
+        projectRoot,
+        "--policy",
+        policyPath,
+        "--json",
+        "--fail-on-exceed",
+      ],
+      { cwd: projectRoot, timeout: 10_000 },
+    );
+    expect(JSON.parse(stdout)).toMatchObject({
+      status: "within-budget",
+      unknownSurfaces: { configProfileSources: 1 },
+    });
+
+    await expect(
+      execFileAsync(
+        process.execPath,
+        [
+          tsx,
+          cli,
+          "budget",
+          "--codex-home",
+          codexHome,
+          "--project",
+          projectRoot,
+          "--max-known-tokens",
+          "1",
+          "--fail-on-exceed",
+        ],
+        { cwd: projectRoot, timeout: 10_000 },
+      ),
+    ).rejects.toMatchObject({ code: 2 });
+  });
+
+  it("blocks an unreadable audit configuration instead of approving the budget", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-budget-error-"));
+    created.push(root);
+    await writeFile(join(root, "config.toml"), "invalid = [");
+    const args = [
+      tsx,
+      cli,
+      "budget",
+      "--codex-home",
+      root,
+      "--project",
+      root,
+      "--max-known-tokens",
+      "100000",
+      "--json",
+    ];
+    const { stdout } = await execFileAsync(process.execPath, args);
+    expect(JSON.parse(stdout)).toMatchObject({
+      status: "unknown",
+      summary: { blocking: 1 },
+    });
+    await expect(
+      execFileAsync(process.execPath, [...args, "--fail-on-exceed"]),
+    ).rejects.toMatchObject({ code: 2 });
+  });
+
   it("compares two capability locks and can fail a CI check on drift", async () => {
     const root = await mkdtemp(join(tmpdir(), "ctxwise-drift-cli-"));
     created.push(root);
