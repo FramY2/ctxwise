@@ -12,6 +12,11 @@ estimated, and unknown measurements.
 
 1. Run `ctxwise doctor` when availability is uncertain.
 2. Select the narrowest command:
+   - `ctxwise agents` for multi-agent context startup tokens and parity across Claude Code (`CLAUDE.md`), OpenAI Codex (`AGENTS.md`), and Cursor.
+   - `ctxwise sync --compress` to synchronize `AGENTS.md` ↔ `CLAUDE.md` ↔ `.cursor/rules` with deterministic Token Diet compression.
+   - `ctxwise mcp-xray --probe-stdio` to rank MCP server tool schemas by token weight and spot bloated schemas.
+   - `ctxwise shield --fail-on-risk` to scan context files and skills for leaked API keys, prompt injection, and hidden Unicode.
+   - `ctxwise preset` to list or apply curated stack budgets and guidance templates.
    - `ctxwise snapshot` for an immediate ranked context health check and safe next actions.
    - `ctxwise budget --max-known-tokens 4000` to check an explicit estimated
      context threshold; add `--fail-on-exceed` only for an intentional CI gate.

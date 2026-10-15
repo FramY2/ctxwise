@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
-  <title id="title">CtxWise — local-first context control</title>
-  <desc id="desc">See what Codex loads, lock what should stay, and prove what each turn uses.</desc>
+  <title id="title">CtxWise — AI Context Firewall, MCP Tree-Shaker &amp; Token Profiler</title>
+  <desc id="desc">Audit CLAUDE.md, AGENTS.md, Cursor rules, and MCP tool schemas. Block secret leaks and token bloat locally and in CI.</desc>
   <defs>
     <linearGradient id="bg" x1="80" y1="0" x2="1120" y2="420" gradientUnits="userSpaceOnUse">
       <stop stop-color="#111025"/>
@@ -48,21 +48,21 @@
       <path d="M11.5 26.5 26.5 11.5" stroke="url(#ray)" stroke-width="4" stroke-linecap="round"/>
       <circle cx="19" cy="19" r="2.8" fill="#C9FDFF" filter="url(#glow)"/>
       <text x="52" y="27" fill="#F7F5FF" font-size="27" font-weight="700" letter-spacing="-.5">CtxWise</text>
-      <rect x="153" y="6" width="118" height="27" rx="13.5" fill="#17172A" stroke="#A99BFF" stroke-opacity=".25"/>
-      <circle cx="170" cy="19.5" r="3.5" fill="#43E7C4"/>
-      <text x="182" y="24" fill="#B8B4C9" font-size="11" font-weight="600" letter-spacing="1.2">FOR CODEX</text>
+      <rect x="158" y="6" width="224" height="27" rx="13.5" fill="#17172A" stroke="#A99BFF" stroke-opacity=".25"/>
+      <circle cx="174" cy="19.5" r="3.5" fill="#43E7C4"/>
+      <text x="186" y="24" fill="#B8B4C9" font-size="11" font-weight="600" letter-spacing="1.1">CLAUDE · CODEX · CURSOR</text>
     </g>
-    <text x="76" y="169" fill="url(#accent)" font-size="49" font-weight="730" letter-spacing="-1.9">Know what enters Codex.</text>
-    <text x="76" y="224" fill="url(#accent)" font-size="49" font-weight="730" letter-spacing="-1.9">Change it with proof.</text>
-    <text x="78" y="269" fill="#A8A7B8" font-size="18">Audit context · compile profiles · detect drift · attach honest receipts</text>
+    <text x="76" y="169" fill="url(#accent)" font-size="47" font-weight="730" letter-spacing="-1.8">Firewall your agent context.</text>
+    <text x="76" y="224" fill="url(#accent)" font-size="47" font-weight="730" letter-spacing="-1.8">Trim MCP bloat with proof.</text>
+    <text x="78" y="269" fill="#A8A7B8" font-size="17">Audit CLAUDE.md &amp; AGENTS.md · tree-shake MCP schemas · block secret &amp; prompt leaks</text>
 
     <g transform="translate(76 314)">
-      <rect width="174" height="43" rx="13" fill="#7657FF"/>
-      <text x="87" y="27" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="700">npm i -g @framy2/ctxwise</text>
-      <rect x="188" width="117" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
-      <text x="246.5" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Apache-2.0</text>
-      <rect x="319" width="126" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
-      <text x="382" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Zero telemetry</text>
+      <rect width="214" height="43" rx="13" fill="#7657FF"/>
+      <text x="107" y="27" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="700">npx @framy2/ctxwise agents</text>
+      <rect x="228" width="117" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
+      <text x="286.5" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Apache-2.0</text>
+      <rect x="359" width="126" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
+      <text x="422" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Zero telemetry</text>
     </g>
   </g>
 
@@ -77,14 +77,14 @@
     <circle cx="198" cy="176" r="3" fill="#FFFFFF"/>
 
     <g font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="650">
-      <g transform="translate(19 35)"><rect width="101" height="31" rx="10" fill="#151827" stroke="#8B7CFF" stroke-opacity=".25"/><circle cx="17" cy="15.5" r="3" fill="#8B7CFF"/><text x="28" y="20" fill="#C8C4D8">104 skills</text></g>
-      <g transform="translate(276 40)"><rect width="102" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">10 plugins</text></g>
-      <g transform="translate(21 279)"><rect width="112" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">2 MCP servers</text></g>
-      <g transform="translate(247 287)"><rect width="130" height="31" rx="10" fill="#151827" stroke="#43E7C4" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#43E7C4"/><text x="28" y="20" fill="#C8C4D8">drift protected</text></g>
+      <g transform="translate(19 35)"><rect width="145" height="31" rx="10" fill="#151827" stroke="#8B7CFF" stroke-opacity=".25"/><circle cx="17" cy="15.5" r="3" fill="#8B7CFF"/><text x="28" y="20" fill="#C8C4D8">CLAUDE.md + AGENTS.md</text></g>
+      <g transform="translate(242 40)"><rect width="136" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">MCP tree-shaker</text></g>
+      <g transform="translate(21 279)"><rect width="136" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">injection shield</text></g>
+      <g transform="translate(247 287)"><rect width="130" height="31" rx="10" fill="#151827" stroke="#43E7C4" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#43E7C4"/><text x="28" y="20" fill="#C8C4D8">CI budget guard</text></g>
     </g>
     <g font-family="Consolas, monospace">
       <text x="198" y="170" text-anchor="middle" fill="#89859A" font-size="9" letter-spacing="1.8">CONTEXT</text>
-      <text x="198" y="190" text-anchor="middle" fill="#F5F3FF" font-size="15" font-weight="700">VISIBLE</text>
+      <text x="198" y="190" text-anchor="middle" fill="#F5F3FF" font-size="15" font-weight="700">FIREWALL</text>
     </g>
     <rect x="32" y="331" width="333" height="3" rx="1.5" fill="#25293A"/>
     <rect x="32" y="331" width="244" height="3" rx="1.5" fill="url(#ray)" filter="url(#glow)"/>

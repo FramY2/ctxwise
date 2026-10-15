@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
   <title id="title">CtxWise social preview</title>
-  <desc id="desc">Local-first observability and control for OpenAI Codex context.</desc>
+  <desc id="desc">Local-first context firewall, MCP schema tree-shaker, and token budget guard for Claude Code, OpenAI Codex, and Cursor.</desc>
   <defs>
     <linearGradient id="bg" x1="70" y1="20" x2="1200" y2="640" gradientUnits="userSpaceOnUse"><stop stop-color="#17112F"/><stop offset=".5" stop-color="#080B14"/><stop offset="1" stop-color="#09131A"/></linearGradient>
     <radialGradient id="a" cx="0" cy="0" r="1" gradientTransform="translate(905 310) rotate(90) scale(360)"><stop stop-color="#7556FF" stop-opacity=".34"/><stop offset="1" stop-color="#7556FF" stop-opacity="0"/></radialGradient>
@@ -20,11 +20,11 @@
       <path d="M14 34 34 14" stroke="url(#ray)" stroke-width="5" stroke-linecap="round"/>
       <circle cx="24" cy="24" r="3" fill="#D6FEFF"/>
       <text x="65" y="34" fill="#FAF9FF" font-size="35" font-weight="730" letter-spacing="-.7">CtxWise</text>
-      <text x="204" y="32" fill="#88859A" font-size="13" font-weight="650" letter-spacing="2">FOR CODEX · LOCAL-FIRST</text>
+      <text x="204" y="32" fill="#88859A" font-size="13" font-weight="650" letter-spacing="1.6">CLAUDE CODE · CODEX · CURSOR · MCP</text>
     </g>
-    <text x="76" y="238" fill="url(#copy)" font-size="64" font-weight="750" letter-spacing="-2.7">See the context.</text>
-    <text x="76" y="310" fill="url(#copy)" font-size="64" font-weight="750" letter-spacing="-2.7">Lock the signal.</text>
-    <text x="78" y="365" fill="#AAA8BA" font-size="21">Audit · profiles · drift detection · honest token receipts</text>
+    <text x="76" y="238" fill="url(#copy)" font-size="60" font-weight="750" letter-spacing="-2.4">Firewall the context.</text>
+    <text x="76" y="310" fill="url(#copy)" font-size="60" font-weight="750" letter-spacing="-2.4">Trim the MCP bloat.</text>
+    <text x="78" y="365" fill="#AAA8BA" font-size="21">CLAUDE.md &amp; AGENTS.md sync · MCP tree-shaker · secret &amp; injection shield</text>
     <g transform="translate(77 435)">
       <rect width="189" height="55" rx="16" fill="#7356F6"/>
       <text x="94.5" y="34" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="700">No API key required</text>
