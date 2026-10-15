@@ -1,0 +1,15 @@
+name: python-fastapi
+stack: Python 3.12 + FastAPI + Pydantic v2
+description: Token-efficient guidance and budget limits for async Python backends.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+  unknown: warn
+recommendedMcpServers:
+  - postgres
+  - github
+rules:
+  - Use Pydantic v2 models (`model_validate`, `ConfigDict`) and strict type annotations on all endpoints.
+  - Prefer async I/O (`httpx`, `asyncpg`) inside async def route handlers; never block the event loop.
+  - Verify changes with `pytest` and `ruff check` before completing a task.
+  - Never hardcode database URLs or API secrets in config files or test fixtures.

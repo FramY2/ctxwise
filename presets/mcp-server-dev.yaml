@@ -1,0 +1,14 @@
+name: mcp-server-dev
+stack: Model Context Protocol (MCP) Server
+description: Strict schema-size budget for building token-efficient MCP servers for Claude and Codex.
+budget:
+  maxKnownTokens: 2200
+  maxContributorTokens: 800
+  unknown: fail
+recommendedMcpServers:
+  - github
+rules:
+  - Keep every MCP tool description concise (< 200 characters) and limit inputSchema properties to < 10 fields.
+  - Never write debug logs to stdout in stdio MCP servers; use stderr exclusively so JSON-RPC frames stay valid.
+  - Redact secrets and tokens from tool error messages and resource outputs.
+  - Audit tool schema token overhead with `ctxwise mcp-xray` before releasing.

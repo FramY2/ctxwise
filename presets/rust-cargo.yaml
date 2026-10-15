@@ -1,0 +1,13 @@
+name: rust-cargo
+stack: Rust + Cargo Workspace
+description: Zero-bloat context budget and memory/error handling guardrails for Rust crates.
+budget:
+  maxKnownTokens: 2500
+  maxContributorTokens: 900
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - Avoid `.unwrap()` and `.expect()` in library or production paths; propagate errors with `?` and `thiserror`/`anyhow`.
+  - Run `cargo clippy --all-targets -- -D warnings` and `cargo test` before finishing changes.
+  - Keep unsafe blocks minimal and document every safety invariant with a `// SAFETY:` comment.

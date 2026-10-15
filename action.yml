@@ -1,0 +1,51 @@
+name: "CtxWise — AI Context Firewall, Budget & Drift Guard"
+description: "Audit CLAUDE.md, AGENTS.md, Cursor rules, and MCP schemas. Block secret leaks, prompt injection, and token budget bloat in CI."
+author: "FramY2"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  max-known-tokens:
+    description: "Maximum estimated startup token budget (set to 0 to skip budget check)"
+    required: false
+    default: "4000"
+  fail-on-secrets:
+    description: "Fail the workflow if hardcoded API keys, prompt injection, or hidden Unicode are detected in agent context files"
+    required: false
+    default: "true"
+  check-agent-parity:
+    description: "Report multi-agent context surface across Claude Code, OpenAI Codex, and Cursor"
+    required: false
+    default: "true"
+  node-version:
+    description: "Node.js version to run CtxWise"
+    required: false
+    default: "22"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run CtxWise Context Shield (Secret & Prompt-Injection Guard)
+      shell: bash
+      run: |
+        if [ "${{ inputs.fail-on-secrets }}" = "true" ]; then
+          npx --yes @framy2/ctxwise shield --fail-on-risk
+        else
+          npx --yes @framy2/ctxwise shield
+        fi
+
+    - name: Run Multi-Agent Context Surface Audit (Claude Code + Codex + Cursor)
+      if: ${{ inputs.check-agent-parity == 'true' }}
+      shell: bash
+      run: npx --yes @framy2/ctxwise agents
+
+    - name: Enforce Startup Token Budget
+      if: ${{ inputs.max-known-tokens != '0' }}
+      shell: bash
+      run: npx --yes @framy2/ctxwise budget --max-known-tokens "${{ inputs.max-known-tokens }}" --fail-on-exceed

@@ -1,0 +1,15 @@
+name: nextjs-typescript
+stack: Next.js + TypeScript + Tailwind
+description: Lean context budget and strict App Router rules for Claude Code and OpenAI Codex.
+budget:
+  maxKnownTokens: 3200
+  maxContributorTokens: 1200
+  unknown: warn
+recommendedMcpServers:
+  - playwright
+  - github
+rules:
+  - Default to React Server Components; add 'use client' only at interactive leaf boundaries.
+  - Validate all external inputs and route params with Zod schemas.
+  - Run `npm run typecheck` and `npm test` before marking any task complete.
+  - Never expose server-only environment variables with the NEXT_PUBLIC_ prefix.

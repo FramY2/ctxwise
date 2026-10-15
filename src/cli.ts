@@ -9,6 +9,12 @@ import process from "node:process";
 import { Command, InvalidArgumentError, Option } from "commander";
 import pc from "picocolors";
 
+import {
+  auditMultiAgentSurface,
+  renderMultiAgentReport,
+  syncAgentGuidance,
+  type SupportedAgentId,
+} from "./agents.js";
 import { queryAccountSnapshot, type AccountSnapshot } from "./app-server.js";
 import { buildAuditSnapshot, renderAuditSnapshot } from "./audit-summary.js";
 import { auditCodexSurface, resolveAuditPath } from "./audit.js";
@@ -27,17 +33,29 @@ import {
 } from "./drift.js";
 import { parseExecJsonl } from "./events.js";
 import { buildCapabilityLock } from "./lockfile.js";
+import {
+  analyzeMcpToolsPayload,
+  buildMcpXrayReport,
+  discoverMcpDeclarations,
+  probeStdioMcpServer,
+  renderMcpXrayReport,
+  type McpToolSchemaMetric,
+} from "./mcp-xray.js";
+import { applyPresetToProject, listBuiltInPresets } from "./presets.js";
 import { compileProfilesFromFile, installProfile } from "./profile.js";
 import { resolveProjectScope } from "./guidance.js";
 import { calculateReceipt, renderReceipt, type AuthMode } from "./receipt.js";
 import { inspectPromptInput, runCodex } from "./runner.js";
+import { renderShieldReport, runContextShield } from "./shield.js";
 import { CTXWISE_VERSION } from "./version.js";
 import { analyzePromptInput } from "./xray.js";
 
 const program = new Command();
 program
   .name("ctxwise")
-  .description("CtxWise: local-first context and usage diagnostics")
+  .description(
+    "CtxWise: local-first context firewall, MCP schema tree-shaker, and token profiler for Claude Code, OpenAI Codex, and Cursor",
+  )
   .version(CTXWISE_VERSION);
 
 function collect(value: string, previous: string[]): string[] {
@@ -595,6 +613,207 @@ program
     });
     const catalog = await loadPriceCatalog();
     process.stdout.write(`Price catalog ${catalog.effectiveDate}: ok\n`);
+  });
+
+program
+  .command("agents")
+  .description(
+    "Audit startup context across Claude Code (CLAUDE.md), OpenAI Codex (AGENTS.md), and Cursor",
+  )
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--claude-home <path>", "Claude home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const claudeDir = resolve(
+      options.claudeHome ??
+        process.env.CLAUDE_CONFIG_DIR ??
+        join(homedir(), ".claude"),
+    );
+    const report = await auditMultiAgentSurface({
+      projectRoot: scope.projectRoot,
+      codexHome: home,
+      claudeHome: claudeDir,
+    });
+    if (options.json) printJson(report);
+    else process.stdout.write(renderMultiAgentReport(report));
+  });
+
+program
+  .command("sync")
+  .description(
+    "Synchronize and optionally compress instructions between AGENTS.md, CLAUDE.md, and Cursor rules",
+  )
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .addOption(
+    new Option("--from <source>", "Canonical source file")
+      .choices(["auto", "agents", "claude"])
+      .default("auto"),
+  )
+  .option(
+    "--cursor",
+    "Also generate .cursor/rules/ctxwise.mdc from the canonical instructions",
+    false,
+  )
+  .option(
+    "--compress",
+    "Apply lossless markdown Token Diet (strip comments, duplicate bullets, and blank bloat)",
+    false,
+  )
+  .option(
+    "--dry-run",
+    "Preview synchronized targets without writing files",
+    false,
+  )
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome();
+    const scope = await commandProjectScope(home, options.project);
+    const targets: SupportedAgentId[] = options.cursor
+      ? ["claude", "codex", "cursor"]
+      : ["claude", "codex"];
+    const result = await syncAgentGuidance({
+      projectRoot: scope.projectRoot,
+      from: options.from as "auto" | "agents" | "claude",
+      targets,
+      compress: Boolean(options.compress),
+      dryRun: Boolean(options.dryRun),
+    });
+    if (options.json) printJson(result);
+    else {
+      process.stdout.write(
+        `CtxWise sync · source ${result.sourcePath}${result.dryRun ? " (dry-run)" : ""}\n`,
+      );
+      for (const target of result.writtenTargets) {
+        const savings =
+          target.savedTokens > 0
+            ? ` (saved ~${target.savedTokens.toLocaleString("en-US")} tokens)`
+            : "";
+        process.stdout.write(
+          `- ${target.target}: ${target.path} (~${target.estimatedTokens.toLocaleString("en-US")} tokens)${savings}\n`,
+        );
+      }
+    }
+  });
+
+program
+  .command("mcp-xray")
+  .description(
+    "Profile MCP tool-schema token weights and identify bloated tools for tree-shaking",
+  )
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--claude-home <path>", "Claude home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option(
+    "--schema-file <path>",
+    "Saved MCP tools/list JSON payload to analyze offline",
+  )
+  .option(
+    "--probe-stdio",
+    "Query declared local stdio MCP servers with tools/list",
+    false,
+  )
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const claudeDir = resolve(options.claudeHome ?? homedir());
+    const declarations = await discoverMcpDeclarations({
+      projectRoot: scope.projectRoot,
+      codexHome: home,
+      claudeHome: claudeDir,
+    });
+    const tools: McpToolSchemaMetric[] = [];
+    if (options.schemaFile) {
+      const payload = JSON.parse(
+        await readFile(resolve(options.schemaFile), "utf8"),
+      ) as unknown;
+      tools.push(...analyzeMcpToolsPayload(payload, "schema-file"));
+    }
+    if (options.probeStdio) {
+      for (const decl of declarations) {
+        const probed = await probeStdioMcpServer(decl);
+        tools.push(...probed);
+      }
+    }
+    const report = buildMcpXrayReport({ declarations, tools });
+    if (options.json) printJson(report);
+    else process.stdout.write(renderMcpXrayReport(report));
+  });
+
+program
+  .command("shield")
+  .description(
+    "Scan agent context files (CLAUDE.md, AGENTS.md, skills, MCP configs) for leaked secrets and prompt injection",
+  )
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--json", "Print structured JSON", false)
+  .option(
+    "--fail-on-risk",
+    "Exit with status 2 when high or critical security risks are found",
+    false,
+  )
+  .action(async (options) => {
+    const home = codexHome();
+    const scope = await commandProjectScope(home, options.project);
+    const report = await runContextShield({ projectRoot: scope.projectRoot });
+    if (options.json) printJson(report);
+    else process.stdout.write(renderShieldReport(report));
+    if (
+      options.failOnRisk &&
+      (report.summary.critical > 0 || report.summary.high > 0)
+    ) {
+      process.exitCode = 2;
+    }
+  });
+
+program
+  .command("preset")
+  .description(
+    "List or apply curated context budget and agent guidance presets for common stacks",
+  )
+  .argument("[name]", "Preset name to apply (omit to list available presets)")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option(
+    "--with-guidance",
+    "Also write starter AGENTS.md and CLAUDE.md files from the preset",
+    false,
+  )
+  .option("--json", "Print structured JSON", false)
+  .action(async (name: string | undefined, options) => {
+    if (!name) {
+      const presets = await listBuiltInPresets();
+      if (options.json) printJson(presets);
+      else {
+        process.stdout.write(
+          `CtxWise presets (${presets.length} available):\n`,
+        );
+        for (const preset of presets) {
+          process.stdout.write(
+            `- ${preset.name} (${preset.stack}) · <= ${preset.budget.maxKnownTokens.toLocaleString("en-US")} tokens — ${preset.description}\n`,
+          );
+        }
+      }
+      return;
+    }
+    const home = codexHome();
+    const scope = await commandProjectScope(home, options.project);
+    const applied = await applyPresetToProject({
+      presetName: name,
+      projectRoot: scope.projectRoot,
+      writeGuidance: Boolean(options.withGuidance),
+    });
+    if (options.json) printJson(applied);
+    else {
+      process.stdout.write(
+        `Applied preset ${applied.preset.name} -> ${applied.budgetPath}\n`,
+      );
+      for (const gPath of applied.guidancePaths) {
+        process.stdout.write(`Wrote ${gPath}\n`);
+      }
+    }
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {

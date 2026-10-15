@@ -1,8 +1,33 @@
 # Contributing
 
-Thank you for helping make Codex context more observable and reproducible.
+Thank you for helping make AI coding agent context (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, and MCP servers) observable, secure, and reproducible across **Claude Code**, **OpenAI Codex**, and **Cursor**.
 
-## Before opening a change
+## Fast-Track Contribution: Add a Stack Preset (5 minutes · Good First Issue)
+
+The easiest way to make your first contribution to CtxWise is adding a curated stack preset in [`presets/`](presets/):
+
+1. Create `presets/<stack-name>.yaml` (for example `presets/sveltekit.yaml`, `presets/django.yaml`, `presets/kotlin-spring.yaml`, `presets/terraform-aws.yaml`).
+2. Follow the strict preset schema:
+   ```yaml
+   name: sveltekit
+   stack: SvelteKit + TypeScript
+   description: Lean startup token budget and Svelte 5 runes conventions for Claude Code and Codex.
+   budget:
+     maxKnownTokens: 3000
+     maxContributorTokens: 1100
+     unknown: warn
+   recommendedMcpServers:
+     - playwright
+     - github
+   rules:
+     - "Use Svelte 5 runes (`$state`, `$derived`, `$props`) instead of legacy `export let` stores."
+     - "Validate form actions and server load inputs on the server boundary."
+     - "Run `npm run check` and `npm test` before completing a task."
+   ```
+3. Run `npm test` — `tests/unit/presets.test.ts` automatically validates every `.yaml` file in `presets/`!
+4. Open a Pull Request.
+
+## Before opening a larger change
 
 - Search existing issues and discussions.
 - Open an issue first for new commands, new data collection, pricing semantics,
@@ -37,7 +62,7 @@ npm pack --dry-run
 - Subscription API-equivalent dollars are off by default and labelled not charged.
 - Unknown measurements never become zero.
 - CtxWise does not read session history by default.
-- Secrets are redacted before lockfile hashing.
+- Secrets are redacted before lockfile hashing and inside `ctxwise shield` snippets.
 - Profile installation creates a backup first.
 - Child processes are invoked without a shell.
 

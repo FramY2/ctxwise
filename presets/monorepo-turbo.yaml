@@ -1,0 +1,13 @@
+name: monorepo-turbo
+stack: Turborepo / pnpm Monorepo
+description: Hierarchical context budget for multi-package TypeScript monorepos.
+budget:
+  maxKnownTokens: 4500
+  maxContributorTokens: 1500
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - Keep root `AGENTS.md` and `CLAUDE.md` under 1,000 tokens; place package-specific rules in scoped subdirectories.
+  - Run scoped tests (`pnpm --filter <pkg> test`) before running full workspace builds.
+  - Enforce context drift locks in CI with `ctxwise drift --fail-on-drift`.

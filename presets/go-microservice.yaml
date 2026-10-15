@@ -1,0 +1,13 @@
+name: go-microservice
+stack: Go 1.23+ Service
+description: Minimal startup token footprint and idiomatic Go concurrency/error conventions.
+budget:
+  maxKnownTokens: 2400
+  maxContributorTokens: 900
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Always propagate `context.Context` as the first parameter across I/O and RPC boundaries."
+  - 'Wrap errors with `fmt.Errorf("...: %w", err)` and check with `errors.Is` / `errors.As`.'
+  - "Run `go test -race ./...` and `go vet ./...` to validate changes."

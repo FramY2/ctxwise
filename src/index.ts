@@ -1,3 +1,4 @@
+export * from "./agents.js";
 export * from "./app-server.js";
 export * from "./audit.js";
 export * from "./audit-summary.js";
@@ -9,8 +10,11 @@ export * from "./context-map.js";
 export * from "./drift.js";
 export * from "./events.js";
 export * from "./lockfile.js";
+export * from "./mcp-xray.js";
+export * from "./presets.js";
 export * from "./profile.js";
 export * from "./receipt.js";
 export * from "./runner.js";
+export * from "./shield.js";
 export * from "./version.js";
 export * from "./xray.js";
