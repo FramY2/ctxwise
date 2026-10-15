@@ -1,32 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">CtxWise one-command Codex context snapshot</title>
-  <desc id="desc">A terminal card showing estimated known startup tokens, ranked guidance and skill contributors, and explicit unknown surfaces.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">CtxWise v1.0 — Multi-Agent Context Audit, MCP X-Ray &amp; Security Shield</title>
+  <desc id="desc">Interactive terminal preview showing CtxWise auditing Claude Code, OpenAI Codex, and Cursor startup tokens, profiling bloated MCP tool schemas, and blocking secret leaks and prompt injection.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#100d1d"/>
-      <stop offset="1" stop-color="#241942"/>
+      <stop offset="0" stop-color="#0D0B18"/>
+      <stop offset="0.55" stop-color="#141129"/>
+      <stop offset="1" stop-color="#09131C"/>
     </linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#8b73ff"/>
-      <stop offset="1" stop-color="#43e7c4"/>
+      <stop offset="0" stop-color="#8B73FF"/>
+      <stop offset="0.5" stop-color="#2DE2E6"/>
+      <stop offset="1" stop-color="#43E7C4"/>
     </linearGradient>
   </defs>
-  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
-  <circle cx="1080" cy="80" r="210" fill="#7657ff" opacity=".13"/>
-  <text x="72" y="78" fill="#a99cff" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="4">CTXWISE</text>
-  <text x="72" y="128" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="38" font-weight="750">See what Codex carries before a task.</text>
-  <text x="72" y="165" fill="#aaa4b8" font-family="Segoe UI,Arial,sans-serif" font-size="20">Local. Read-only. No model or API call.</text>
-  <rect x="72" y="205" width="1056" height="354" rx="18" fill="#090812" stroke="#40365e" stroke-width="2"/>
-  <circle cx="104" cy="235" r="6" fill="#ff6b7a"/><circle cx="126" cy="235" r="6" fill="#ffd166"/><circle cx="148" cy="235" r="6" fill="#43e7c4"/>
-  <g font-family="Consolas,Menlo,monospace" font-size="18">
-    <text x="104" y="283" fill="#43e7c4">$ npx @framy2/ctxwise snapshot</text>
-    <text x="104" y="327" fill="#fff" font-weight="700">CtxWise snapshot · attention · ~3,738 known startup tokens</text>
-    <text x="104" y="359" fill="#a8a3b3">2 guidance files · 41 skills · 10 plugins · 1 MCP server</text>
-    <text x="104" y="407" fill="#8b73ff">Largest known contributors</text>
-    <text x="104" y="440" fill="#dedbe5">~299  guidance          codex-home/AGENTS.md</text>
-    <text x="104" y="472" fill="#dedbe5">~170  guidance          project/AGENTS.md</text>
-    <text x="104" y="504" fill="#dedbe5">~145  skill discovery   imagegen</text>
-    <text x="104" y="540" fill="#ffd166">Unknown stays unknown: config values and MCP schemas are not guessed.</text>
+  <rect width="1200" height="680" rx="28" fill="url(#bg)"/>
+  <circle cx="1080" cy="80" r="220" fill="#7657FF" opacity=".14"/>
+  <circle cx="140" cy="600" r="190" fill="#2DE2E6" opacity=".08"/>
+  <rect x="1" y="1" width="1198" height="678" rx="27" fill="none" stroke="#8B73FF" stroke-opacity=".28" stroke-width="2"/>
+
+  <text x="64" y="64" fill="#A99CFF" font-family="Segoe UI,Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3.5">CTXWISE V1.0 · ZERO API CALLS · 100% LOCAL</text>
+  <text x="64" y="108" fill="#FFFFFF" font-family="Segoe UI,Arial,sans-serif" font-size="34" font-weight="750" letter-spacing="-0.8">What CtxWise catches in your repo in &lt;50ms</text>
+
+  <rect x="64" y="136" width="1072" height="492" rx="18" fill="#07070E" stroke="#3B3358" stroke-width="2"/>
+  <circle cx="96" cy="166" r="6.5" fill="#FF5F56"/>
+  <circle cx="118" cy="166" r="6.5" fill="#FFBD2E"/>
+  <circle cx="140" cy="166" r="6.5" fill="#27C93F"/>
+  <text x="600" y="171" text-anchor="middle" fill="#7C7794" font-family="Consolas,Menlo,monospace" font-size="14">zsh — ctxwise v1.0.0 (Claude Code + OpenAI Codex + Cursor + MCP)</text>
+  <line x1="64" y1="190" x2="1136" y2="190" stroke="#252038" stroke-width="1.5"/>
+
+  <g font-family="Consolas,Menlo,monospace" font-size="16.5">
+    <!-- Command 1: mcp-xray -->
+    <text x="96" y="226" fill="#43E7C4" font-weight="700">$ npx @framy2/ctxwise mcp-xray --probe-stdio</text>
+    <text x="96" y="256" fill="#FFFFFF" font-weight="700">CtxWise mcp-xray · 4 MCP servers · 24 tool schemas · ~18,420 tokens/turn</text>
+    <text x="96" y="284" fill="#FF6B7A">  [BLOATED] ~2,840 tok · github/create_or_update_pull_request (19 params)</text>
+    <text x="96" y="310" fill="#FF6B7A">  [BLOATED] ~1,920 tok · playwright/browser_snapshot_dom (15 params)</text>
+    <text x="96" y="336" fill="#FFD166">  ➜ Tree-shaking savings: ~4,760 tokens saved on every single turn</text>
+
+    <!-- Command 2: agents & sync -->
+    <text x="96" y="382" fill="#43E7C4" font-weight="700">$ npx @framy2/ctxwise agents &amp;&amp; npx @framy2/ctxwise sync --compress</text>
+    <text x="96" y="412" fill="#FFFFFF" font-weight="700">CtxWise multi-agent · parity: synced ✓ · Claude ~410 tok · Codex ~410 tok · Cursor ~410 tok</text>
+    <text x="96" y="438" fill="#A99CFF">  ✓ Synced AGENTS.md ↔ CLAUDE.md ↔ .cursor/rules/ctxwise.mdc (-34% Token Diet)</text>
+
+    <!-- Command 3: shield -->
+    <text x="96" y="484" fill="#43E7C4" font-weight="700">$ npx @framy2/ctxwise shield --fail-on-risk</text>
+    <text x="96" y="514" fill="#FF6B7A" font-weight="700">CtxWise shield · high-risk · 6 context files scanned · 2 findings blocked</text>
+    <text x="96" y="542" fill="#DEDBE5">  ✗ [HIGH] .mcp.json:14 — Hardcoded Anthropic API Key (sk-ant-api03-***REDACTED***)</text>
+    <text x="96" y="568" fill="#DEDBE5">  ✗ [HIGH] .claude/skills/helper/SKILL.md:42 — Covert HTML comment prompt injection</text>
+    <text x="96" y="598" fill="#43E7C4">  ✓ CI Gate: Exited with code 2 before secret or injection reached git/model</text>
   </g>
-  <rect x="72" y="584" width="1056" height="3" rx="2" fill="url(#accent)"/>
+
+  <rect x="64" y="648" width="1072" height="4" rx="2" fill="url(#accent)"/>
 </svg>

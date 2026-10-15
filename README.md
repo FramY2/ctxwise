@@ -5,76 +5,100 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@framy2/ctxwise"><img alt="npm version" src="https://img.shields.io/npm/v/%40framy2%2Fctxwise?color=7657FF" /></a>
+  <a href="https://github.com/FramY2/ctxwise/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/FramY2/ctxwise?style=flat&logo=github&color=F59E0B" /></a>
+  <a href="https://www.npmjs.com/package/@framy2/ctxwise"><img alt="npm version" src="https://img.shields.io/npm/v/%40framy2%2Fctxwise?color=7657FF&logo=npm" /></a>
+  <a href="https://www.npmjs.com/package/@framy2/ctxwise"><img alt="npm downloads" src="https://img.shields.io/npm/dt/%40framy2%2Fctxwise?color=2DE2E6&logo=npm" /></a>
   <a href="https://github.com/FramY2/ctxwise/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/FramY2/ctxwise/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Agents: Claude Code | OpenAI Codex | Cursor" src="https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex%20%7C%20Cursor-7657FF" />
-  <img alt="Node.js 20 or newer" src="https://img.shields.io/badge/node-%3E%3D20-339933" />
   <img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-2DE2E6" />
-  <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome%20(Hacktoberfest)-brightgreen" />
+  <a href="https://github.com/FramY2/ctxwise/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good First Issues" src="https://img.shields.io/github/issues/FramY2/ctxwise/good%20first%20issue?color=brightgreen&label=good%20first%20issues" /></a>
 </p>
 
 <p align="center">
-  <strong>Stop burning 30,000+ startup tokens on idle MCP schemas, diverging <code>CLAUDE.md</code> / <code>AGENTS.md</code> files, and hidden prompt leaks.</strong><br />
+  <strong>Stop burning 30,000+ startup tokens on bloated MCP tool schemas, diverging <code>CLAUDE.md</code> / <code>AGENTS.md</code> files, and hidden prompt leaks.</strong><br />
   The local-first AI Context Firewall, MCP Schema Tree-Shaker, and Token Profiler for <strong>Claude Code</strong>, <strong>OpenAI Codex</strong>, and <strong>Cursor</strong>.
 </p>
 
 <p align="center">
-  <a href="#30-second-quickstart"><strong>Quickstart</strong></a> ·
-  <a href="#github-action-ci-guard"><strong>GitHub Action</strong></a> ·
-  <a href="#mcp-schema-tree-shaking"><strong>MCP X-Ray</strong></a> ·
-  <a href="#context-security-shield"><strong>Security Shield</strong></a> ·
-  <a href="#contribute-a-stack-preset-in-5-minutes"><strong>Contribute a Preset</strong></a> ·
-  <a href="#live-evidence"><strong>Benchmarks (-73.3% prompt)</strong></a>
+  <a href="#30-second-quickstart"><strong>⚡ 30s Quickstart</strong></a> ·
+  <a href="#before-vs-after-ctxwise"><strong>📊 Before vs. After</strong></a> ·
+  <a href="#mcp-schema-tree-shaking"><strong>🌳 MCP Tree-Shaker</strong></a> ·
+  <a href="#context-security-shield"><strong>🛡️ Security Shield</strong></a> ·
+  <a href="#github-action-ci-guard"><strong>🤖 GitHub Action</strong></a> ·
+  <a href="#contribute-a-stack-preset-in-5-minutes"><strong>🤝 5-Min PRs</strong></a>
 </p>
 
----
-
-## Why Developers Install CtxWise
-
-Modern coding agents (**Claude Code**, **OpenAI Codex CLI**, **Cursor**) silently load `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, skill catalogs, and **MCP server tool schemas** on every single turn:
-
-1. **Idle MCP Schema Bloat:** Connecting 4–5 MCP servers (GitHub, Postgres, Playwright, Notion) can burn **15,000–40,000 tokens before you type a single word**.
-2. **Multi-Agent Drift:** Teams using both **Claude Code** (`CLAUDE.md`) and **OpenAI Codex** (`AGENTS.md`) end up with out-of-sync rules and duplicated boilerplate.
-3. **Silent Secret & Prompt-Injection Leaks:** Hardcoded API keys (`sk-ant-...`, `sk-proj-...`, `ghp_...`) or covert HTML/Unicode instructions inside third-party skills get injected directly into model prompts.
-
-**CtxWise fixes all three locally in milliseconds — with zero model calls, zero API keys, and zero telemetry.**
+> **💡 Using Claude Code, OpenAI Codex, or Cursor?** Drop a **⭐ Star** on GitHub so you can find CtxWise whenever your MCP servers or `CLAUDE.md` / `AGENTS.md` files start bloating your context window!
 
 ---
 
-## 30-Second Quickstart
+## ⚡ 30-Second Quickstart
 
-Run directly with `npx` in any repository where you use **Claude Code**, **OpenAI Codex**, or **Cursor**:
+Zero config, zero API keys, zero model calls. Run directly with `npx` in any repository:
 
 ```shell
-# 1. Audit startup tokens & parity across Claude Code (CLAUDE.md), Codex (AGENTS.md), and Cursor
+# 1. Profile MCP servers & find bloated tool schemas silently eating your context window
+npx @framy2/ctxwise mcp-xray --probe-stdio
+
+# 2. Audit startup tokens & parity across Claude Code (CLAUDE.md), Codex (AGENTS.md), and Cursor
 npx @framy2/ctxwise agents
 
-# 2. Scan context files & skills for leaked API keys, prompt injection, and hidden Unicode
+# 3. Scan context files & skills for leaked API keys, prompt injection, and hidden Trojan Unicode
 npx @framy2/ctxwise shield --fail-on-risk
-
-# 3. Profile MCP servers & find bloated tool schemas eating your context window
-npx @framy2/ctxwise mcp-xray --probe-stdio
 
 # 4. Sync CLAUDE.md <-> AGENTS.md <-> Cursor rules and apply lossless Token Diet compression
 npx @framy2/ctxwise sync --compress --cursor
 ```
 
+<p align="center">
+  <img src="assets/brand/ctxwise-snapshot.svg" alt="CtxWise v1.0 terminal showcase: mcp-xray, multi-agent sync, and security shield" width="100%" />
+</p>
+
 ---
 
-## Key Capabilities
+## 📊 Before vs. After CtxWise
 
-### 1. Multi-Agent Context Audit & "Token Diet" Sync (`agents` & `sync`)
+Modern coding agents (**Claude Code**, **OpenAI Codex CLI**, **Cursor**) load `CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, skill catalogs, and **every connected MCP server's JSON schema** on every turn:
 
-Keep **Claude Code** (`CLAUDE.md`, `.claude/skills`, `.claude/commands`, `.mcp.json`), **OpenAI Codex** (`AGENTS.md`, `.codex/skills`), and **Cursor** (`.cursor/rules/*.mdc`) 100% aligned while stripping markdown bloat (comments, duplicate bullet rules, blank padding) without touching code blocks:
+| Problem Surface                      | ❌ Without CtxWise                                            | ✅ With CtxWise v1.0                                                     |
+| :----------------------------------- | :------------------------------------------------------------ | :----------------------------------------------------------------------- |
+| **Idle MCP Tool Schemas**            | 4–5 MCP servers silently burn **15,000–35,000 tokens/turn**   | `ctxwise mcp-xray` ranks every tool schema & flags `[BLOATED]` tools     |
+| **Multi-Agent Rule Drift**           | `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules` diverge fast    | `ctxwise sync --compress` keeps all 3 synced + strips 25–40% boilerplate |
+| **Leaked API Keys in Context**       | `sk-ant-*`, `sk-proj-*`, `ghp_*` inside `.mcp.json` or skills | `ctxwise shield` blocks secrets before they enter git or model prompts   |
+| **Prompt Injection & Trojan Source** | Hidden `<!-- curl ... -->` comments or zero-width Unicode     | `ctxwise shield --fail-on-risk` fails CI (`exit 2`) in `<20ms`           |
+| **Measured Prompt Overhead**         | Unbounded context growth across PRs                           | **-73.3% model-visible prompt** & **-29.1% turn tokens** (20/20 pass)    |
 
-```shell
-npx @framy2/ctxwise agents
-npx @framy2/ctxwise sync --compress --cursor
+---
+
+## 🏗️ How It Works
+
+```mermaid
+flowchart LR
+    subgraph Sources["Active Agent Context Surface"]
+        C["Claude Code\nCLAUDE.md · .mcp.json · .claude/skills"]
+        O["OpenAI Codex\nAGENTS.md · config.toml · .codex/skills"]
+        U["Cursor\n.cursorrules · .cursor/rules/*.mdc"]
+    end
+
+    subgraph Engine["CtxWise Local Engine (0 API Calls · <50ms)"]
+        A["ctxwise agents & sync\nCross-Agent Parity + Token Diet"]
+        M["ctxwise mcp-xray\nMCP Tool Schema Tree-Shaker"]
+        S["ctxwise shield\nSecret & Prompt-Injection Firewall"]
+        B["ctxwise budget & drift\nDeterministic Lock & CI Gate"]
+    end
+
+    Sources --> Engine
+    Engine --> Out1["Lean, Synced Context\n(-29% to -73% Token Overhead)"]
+    Engine --> Out2["GitHub Action CI Gate\nuses: FramY2/ctxwise@v1"]
 ```
 
-### 2. MCP Schema Tree-Shaking (`mcp-xray`)
+---
 
-Discover all MCP servers declared across `.mcp.json`, `~/.claude.json`, and `~/.codex/config.toml`. Measure exact token weights per tool schema (either from a saved `tools/list` JSON file or by probing local stdio servers live) and spot `[BLOATED]` tools:
+## 🔥 Core Features
+
+### 1. 🌳 MCP Schema Tree-Shaking (`mcp-xray`)
+
+Discover all MCP servers declared across `.mcp.json`, `~/.claude.json`, and `~/.codex/config.toml`. Measure exact token weights per tool schema (from a saved `tools/list` JSON file or by probing local stdio servers live) and spot `[BLOATED]` tools (`>= 250` tokens or `>= 12` input properties):
 
 ```shell
 npx @framy2/ctxwise mcp-xray --probe-stdio
@@ -90,7 +114,16 @@ Heaviest MCP tool schemas:
 Tree-shaking potential: ~1,530 tokens/turn savable by pruning bloated tools.
 ```
 
-### 3. Context Security Shield (`shield`)
+### 2. 🔄 Multi-Agent Context Audit & "Token Diet" Sync (`agents` & `sync`)
+
+Keep **Claude Code** (`CLAUDE.md`, `.claude/skills`, `.claude/commands`, `.mcp.json`), **OpenAI Codex** (`AGENTS.md`, `.codex/skills`), and **Cursor** (`.cursor/rules/*.mdc`) 100% aligned while stripping markdown bloat (HTML comments, duplicate bullet rules, blank padding) without touching fenced code blocks:
+
+```shell
+npx @framy2/ctxwise agents
+npx @framy2/ctxwise sync --compress --cursor
+```
+
+### 3. 🛡️ Context Security Shield (`shield`)
 
 Protect your repository before an agent reads your workspace or before a PR merges:
 
@@ -101,9 +134,9 @@ Protect your repository before an agent reads your workspace or before a PR merg
 npx @framy2/ctxwise shield --fail-on-risk
 ```
 
-### 4. Curated Stack Presets (`preset`)
+### 4. 📦 Curated Stack Presets (`preset`)
 
-Bootstrap a reviewable token budget (`ctxwise.budget.yaml`) and lean starter `AGENTS.md` + `CLAUDE.md` files tailored to your stack:
+Bootstrap a reviewable token budget (`ctxwise.budget.yaml`) and lean starter `AGENTS.md` + `CLAUDE.md` files tailored to your stack in one command:
 
 ```shell
 npx @framy2/ctxwise preset
@@ -121,7 +154,7 @@ Built-in presets include:
 
 ---
 
-## GitHub Action (CI Guard)
+## 🤖 GitHub Action (CI Guard)
 
 Add **CtxWise** to `.github/workflows/ci.yml` in 5 lines to automatically block secret leaks, prompt injection, and context token bloat on every Pull Request:
 
@@ -136,20 +169,17 @@ Add **CtxWise** to `.github/workflows/ci.yml` in 5 lines to automatically block 
 
 ---
 
-## See what Codex carries in one command (`snapshot` & `budget`)
-
-![CtxWise snapshot showing ranked local Codex context contributors](assets/brand/ctxwise-snapshot.svg)
-
-```shell
-npx @framy2/ctxwise snapshot
-npx @framy2/ctxwise budget --max-known-tokens 4000 --fail-on-exceed
-```
+## 🎥 20-Second Live Demo & Benchmarks
 
 [![CtxWise short product demo](benchmarks/demo/ctxwise-demo.gif)](benchmarks/demo/ctxwise-demo.mp4)
 
+The public microbenchmark ran 10 paired tasks across requested GPT-5.6 Luna, Terra, and Sol profiles: **20/20 answers passed the same exact validator**. Removing irrelevant discovered context reduced the estimated model-visible prompt by **73.3%** and exact aggregate turn tokens by **29.1%** (with a second maintainer repeat measuring **28.5%** across nine comparable pairs).
+
+Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md) or inspect the [machine-readable summary](benchmarks/results/2026-08-09-v1/summary.json).
+
 ---
 
-## Full CLI Reference
+## 🧰 Full CLI Reference
 
 | Command            | What it does                                                                                   | Network / Model Call        |
 | :----------------- | :--------------------------------------------------------------------------------------------- | :-------------------------- |
@@ -172,21 +202,20 @@ npx @framy2/ctxwise budget --max-known-tokens 4000 --fail-on-exceed
 
 ---
 
-## Contribute a Stack Preset in 5 Minutes
+## 🤝 Contribute a Stack Preset in 5 Minutes
 
-We welcome community contributions! Adding a new stack preset in [`presets/`](presets/) (e.g., `sveltekit`, `django`, `laravel`, `kotlin-spring`, `terraform-aws`, `flutter`) takes less than 5 minutes and is a great **Good First Issue / Hacktoberfest** PR:
+Want to make your first open-source contribution to an AI developer tool? Adding a new stack preset in [`presets/`](presets/) takes **less than 5 minutes** (just 1 YAML file, validated automatically by `npm test`):
 
-1. Add `presets/<your-stack>.yaml` following [`CONTRIBUTING.md`](CONTRIBUTING.md).
-2. Run `npm test` to validate your YAML schema automatically.
-3. Open a Pull Request!
+- 🟢 [**Issue #23**](https://github.com/FramY2/ctxwise/issues/23) — Add `sveltekit-typescript` preset (SvelteKit 2 + Svelte 5 Runes)
+- 🟢 [**Issue #24**](https://github.com/FramY2/ctxwise/issues/24) — Add `astro-content` preset (Astro 5 + Content Layer)
+- 🟢 [**Issue #25**](https://github.com/FramY2/ctxwise/issues/25) — Add `django-ninja` preset (Python + Django 5 + Django Ninja)
+- 🟢 [**Issue #26**](https://github.com/FramY2/ctxwise/issues/26) — Add `laravel-inertia` preset (Laravel 11 + Inertia.js + PHP 8.3)
+- 🟢 [**Issue #27**](https://github.com/FramY2/ctxwise/issues/27) — Add `kotlin-spring-boot` preset (Kotlin + Spring Boot 3)
+- 🟢 [**Issue #28**](https://github.com/FramY2/ctxwise/issues/28) — Add `cloudflare-workers-hono` preset (Cloudflare Workers + Hono)
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the 3-step guide!
 
 ---
-
-## Live Evidence
-
-The public microbenchmark ran 10 paired tasks across requested GPT-5.6 Luna, Terra, and Sol profiles: **20/20 answers passed the same exact validator**. Removing irrelevant discovered context reduced the estimated model-visible prompt by **73.3%** and exact aggregate turn tokens by **29.1%** (with a second maintainer repeat measuring **28.5%** across nine comparable pairs).
-
-Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md), inspect the [machine-readable summary](benchmarks/results/2026-08-09-v1/summary.json), or watch the [20-second MP4](benchmarks/demo/ctxwise-demo.mp4).
 
 ## Cost Honesty by Design
 
@@ -198,16 +227,13 @@ Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md), i
 
 See [Architecture](docs/architecture.md), [Cost semantics](docs/cost-semantics.md), and [Privacy and security](docs/privacy-security.md).
 
-## Development
-
-```shell
-npm ci
-npm run check
-npm run build
-npm run validate:plugin
-npm pack --dry-run
-```
-
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+---
+
+<p align="center">
+  <strong>If CtxWise saved you tokens or caught a bloated MCP schema, please give the repo a ⭐ Star on GitHub!</strong><br />
+  <a href="https://github.com/FramY2/ctxwise/stargazers">⭐ Star FramY2/ctxwise on GitHub</a>
+</p>
