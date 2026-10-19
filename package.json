@@ -65,7 +65,7 @@
     "local-first"
   ],
   "license": "Apache-2.0",
-  "author": "CtxWise contributors",
+  "author": "Christian Frascogna <chriss196422@gmail.com> (https://github.com/FramY2)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FramY2/ctxwise.git"
