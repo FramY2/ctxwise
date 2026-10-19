@@ -1,0 +1,15 @@
+name: sveltekit
+stack: SvelteKit 2 + Svelte 5 Runes + TypeScript
+description: Lean startup token budget and Svelte 5 runes conventions for Claude Code, OpenAI Codex, and Cursor.
+budget:
+  maxKnownTokens: 3000
+  maxContributorTokens: 1100
+  unknown: warn
+recommendedMcpServers:
+  - playwright
+  - github
+rules:
+  - "Use Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`) instead of legacy Svelte 4 reactive declarations (`$:`) or `export let`."
+  - "Validate all form actions and `+page.server.ts` load inputs at the server boundary."
+  - "Keep secret environment variables strictly in `$env/static/private` or `$env/dynamic/private`."
+  - "Run `npm run check` and `npm test` before completing any task."
