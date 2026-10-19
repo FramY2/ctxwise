@@ -10,7 +10,8 @@ and semantic versioning.
 ### Added
 
 - **Multi-Agent Context Engine (`ctxwise agents` & `ctxwise sync`)**: native context surface audit, parity detection, and lossless markdown compression ("Token Diet") across **Claude Code** (`CLAUDE.md`, `.claude/`, `.mcp.json`), **OpenAI Codex** (`AGENTS.md`, `.codex/`), and **Cursor** (`.cursor/rules/`).
-- **MCP Schema Token Profiler & Tree-Shaker (`ctxwise mcp-xray`)**: discovers MCP servers across `.mcp.json`, `~/.claude.json`, and Codex `config.toml`, analyzes `tools/list` schemas offline or via live stdio JSON-RPC probing (`--probe-stdio`), and identifies bloated tool schemas for tree-shaking.
+- **OpenAI Codex 32 KiB Doctor (`ctxwise codex-doctor`)**: audits hierarchical `AGENTS.override.md` and `AGENTS.md` instruction chains against OpenAI Codex CLI's `32,768`-byte (`project_doc_max_bytes`) truncation limit and validates `.codex/config.toml`.
+- **MCP Schema Token Profiler & Tree-Shaker (`ctxwise mcp-xray` & `ctxwise mcp-prune`)**: discovers MCP servers across `.mcp.json`, `~/.claude.json`, and Codex `config.toml`, analyzes `tools/list` schemas offline or via live stdio JSON-RPC probing (`--probe-stdio`), and prunes unused bloated tool schemas with automatic `.bak` backups.
 - **Context Security Firewall (`ctxwise shield`)**: scans active agent context files for hardcoded API keys (Anthropic, OpenAI, GitHub, AWS, private keys), prompt-injection overrides, covert HTML comments, and hidden Trojan Source Unicode characters (`--fail-on-risk`).
 - **Community Stack Presets (`ctxwise preset` & `presets/*.yaml`)**: ships curated token-budget and guidance presets for Next.js, Python FastAPI, Rust, Go, MCP Server development, and Turborepo monorepos.
 - **GitHub Composite Action (`action.yml`)**: one-line CI integration (`uses: FramY2/ctxwise@v1`) for automated secret/injection scanning, multi-agent parity checks, and startup token budget gates on Pull Requests.
