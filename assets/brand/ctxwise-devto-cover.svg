@@ -148,11 +148,11 @@
     <!-- Bottom Status Pills -->
     <g transform="translate(18 286)">
       <rect x="0" y="0" width="194" height="46" rx="10" fill="#0E1E24" stroke="#2DE2E6" stroke-opacity="0.35"/>
-      <text x="12" y="19" fill="#2DE2E6" font-size="10.5" font-weight="700">✓ SHIELD FIREWALL PASS</text>
+      <text x="12" y="19" fill="#2DE2E6" font-size="10.5" font-weight="700">[PASS] SHIELD FIREWALL</text>
       <text x="12" y="35" fill="#B4C6CC" font-size="9.8">0 secrets · 0 injections</text>
 
       <rect x="206" y="0" width="194" height="46" rx="10" fill="#17142B" stroke="#8B5CFF" stroke-opacity="0.4"/>
-      <text x="218" y="19" fill="#C4B5FD" font-size="10.5" font-weight="700">✓ CODEX &amp; CLAUDE SYNC</text>
+      <text x="218" y="19" fill="#C4B5FD" font-size="10.5" font-weight="700">[PASS] CODEX &amp; CLAUDE SYNC</text>
       <text x="218" y="35" fill="#BDB9D6" font-size="9.8">32 KiB limit OK · aligned</text>
     </g>
   </g>

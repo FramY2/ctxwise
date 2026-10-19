@@ -170,11 +170,11 @@
     <!-- Section 3: Security & Sync Status Pills -->
     <g transform="translate(24 424)">
       <rect x="0" y="0" width="244" height="64" rx="12" fill="#0E1E24" stroke="#2DE2E6" stroke-opacity="0.35"/>
-      <text x="16" y="25" fill="#2DE2E6" font-size="12.5" font-weight="700">✓ SHIELD FIREWALL PASS</text>
+      <text x="16" y="25" fill="#2DE2E6" font-size="12.5" font-weight="700">[PASS] SHIELD FIREWALL</text>
       <text x="16" y="46" fill="#B4C6CC" font-size="11.5">0 secrets · 0 prompt injections</text>
 
       <rect x="260" y="0" width="244" height="64" rx="12" fill="#17142B" stroke="#8B5CFF" stroke-opacity="0.4"/>
-      <text x="276" y="25" fill="#C4B5FD" font-size="12.5" font-weight="700">✓ CODEX &amp; CLAUDE SYNC</text>
+      <text x="276" y="25" fill="#C4B5FD" font-size="12.5" font-weight="700">[PASS] CODEX &amp; CLAUDE SYNC</text>
       <text x="276" y="46" fill="#BDB9D6" font-size="11.5">32 KiB limit OK · rules aligned</text>
     </g>
   </g>

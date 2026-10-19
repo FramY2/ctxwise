@@ -1,92 +1,161 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
-  <title id="title">CtxWise — AI Context Firewall, MCP Tree-Shaker &amp; Token Profiler</title>
+  <title id="title">CtxWise v1.0 — AI Context Firewall, MCP Tree-Shaker &amp; Token Profiler</title>
   <desc id="desc">Audit CLAUDE.md, AGENTS.md, Cursor rules, and MCP tool schemas. Block secret leaks and token bloat locally and in CI.</desc>
   <defs>
-    <linearGradient id="bg" x1="80" y1="0" x2="1120" y2="420" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#111025"/>
-      <stop offset=".55" stop-color="#080B15"/>
-      <stop offset="1" stop-color="#0A111B"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B081B"/>
+      <stop offset="0.5" stop-color="#070B14"/>
+      <stop offset="1" stop-color="#06131E"/>
     </linearGradient>
-    <radialGradient id="violet" cx="0" cy="0" r="1" gradientTransform="translate(760 205) rotate(12) scale(370 280)" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7450FF" stop-opacity=".32"/>
-      <stop offset="1" stop-color="#7450FF" stop-opacity="0"/>
+    <radialGradient id="glowLeft" cx="0" cy="0" r="1" gradientTransform="translate(260 140) rotate(90) scale(310)">
+      <stop stop-color="#7C5CFF" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#7C5CFF" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="cyan" cx="0" cy="0" r="1" gradientTransform="translate(1050 70) rotate(120) scale(240 190)" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2DE2E6" stop-opacity=".18"/>
-      <stop offset="1" stop-color="#2DE2E6" stop-opacity="0"/>
+    <radialGradient id="glowRight" cx="0" cy="0" r="1" gradientTransform="translate(900 210) rotate(90) scale(340)">
+      <stop stop-color="#2DE2E6" stop-opacity="0.2"/>
+      <stop offset="0.6" stop-color="#8B5CFF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#070B14" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="accent" x1="108" y1="94" x2="463" y2="238" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset=".58" stop-color="#D7D1FF"/>
-      <stop offset="1" stop-color="#8DF7FA"/>
-    </linearGradient>
-    <linearGradient id="ray" x1="825" y1="280" x2="1010" y2="95" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8B5CFF"/>
+    <linearGradient id="ray" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#8B5CFF"/>
       <stop offset="1" stop-color="#2DE2E6"/>
     </linearGradient>
-    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
-      <path d="M44 0H0V44" fill="none" stroke="#B8B0FF" stroke-opacity=".045"/>
+    <linearGradient id="headline" x1="56" y1="110" x2="580" y2="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.65" stop-color="#E5E0FF"/>
+      <stop offset="1" stop-color="#7AF8FC"/>
+    </linearGradient>
+    <linearGradient id="redBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF4D6D"/>
+      <stop offset="1" stop-color="#FF8FA3"/>
+    </linearGradient>
+    <linearGradient id="cyanBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#2DE2E6"/>
+    </linearGradient>
+    <linearGradient id="cardBorder" x1="630" y1="30" x2="1160" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CFF" stop-opacity="0.7"/>
+      <stop offset="0.5" stop-color="#2DE2E6" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#8B5CFF" stop-opacity="0.25"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#A99BFF" stroke-opacity="0.045"/>
     </pattern>
-    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#02040A" flood-opacity=".55"/>
-    </filter>
   </defs>
-  <rect width="1200" height="420" rx="28" fill="url(#bg)"/>
-  <rect width="1200" height="420" rx="28" fill="url(#grid)"/>
-  <rect width="1200" height="420" rx="28" fill="url(#violet)"/>
-  <rect width="1200" height="420" rx="28" fill="url(#cyan)"/>
-  <rect x=".75" y=".75" width="1198.5" height="418.5" rx="27.25" fill="none" stroke="#A99BFF" stroke-opacity=".24" stroke-width="1.5"/>
 
-  <g font-family="Segoe UI, Arial, sans-serif">
-    <g transform="translate(76 54)">
-      <rect width="38" height="38" rx="11" fill="#191630" stroke="#8B7CFF" stroke-opacity=".5"/>
-      <circle cx="19" cy="19" r="11" fill="none" stroke="#A99BFF" stroke-opacity=".4"/>
-      <path d="M11.5 26.5 26.5 11.5" stroke="url(#ray)" stroke-width="4" stroke-linecap="round"/>
-      <circle cx="19" cy="19" r="2.8" fill="#C9FDFF" filter="url(#glow)"/>
-      <text x="52" y="27" fill="#F7F5FF" font-size="27" font-weight="700" letter-spacing="-.5">CtxWise</text>
-      <rect x="158" y="6" width="224" height="27" rx="13.5" fill="#17172A" stroke="#A99BFF" stroke-opacity=".25"/>
-      <circle cx="174" cy="19.5" r="3.5" fill="#43E7C4"/>
-      <text x="186" y="24" fill="#B8B4C9" font-size="11" font-weight="600" letter-spacing="1.1">CLAUDE · CODEX · CURSOR</text>
+  <!-- Background -->
+  <rect width="1200" height="420" rx="26" fill="url(#bg)"/>
+  <rect width="1200" height="420" rx="26" fill="url(#grid)"/>
+  <rect width="1200" height="420" rx="26" fill="url(#glowLeft)"/>
+  <rect width="1200" height="420" rx="26" fill="url(#glowRight)"/>
+  <rect x="1" y="1" width="1198" height="418" rx="25" fill="none" stroke="#A99BFF" stroke-opacity="0.24" stroke-width="1.5"/>
+
+  <!-- Left Column -->
+  <g font-family="Segoe UI, Inter, Arial, sans-serif">
+    <!-- Brand -->
+    <g transform="translate(56 40)">
+      <rect width="42" height="42" rx="12" fill="#171330" stroke="#8B7CFF" stroke-opacity="0.7" stroke-width="1.5"/>
+      <circle cx="21" cy="21" r="12" fill="none" stroke="#A99BFF" stroke-opacity="0.45" stroke-width="1.3"/>
+      <path d="M12 30 L30 12" stroke="url(#ray)" stroke-width="4.2" stroke-linecap="round"/>
+      <circle cx="21" cy="21" r="3" fill="#E0FFFF"/>
+      <text x="56" y="30" fill="#FFFFFF" font-size="29" font-weight="800" letter-spacing="-0.6">CtxWise</text>
+      <rect x="178" y="8" width="52" height="26" rx="8" fill="#1F1942" stroke="#8B5CFF" stroke-opacity="0.6"/>
+      <text x="204" y="25" text-anchor="middle" fill="#C4B5FD" font-size="12.5" font-weight="700">v1.0</text>
+      <rect x="240" y="8" width="290" height="26" rx="13" fill="#111726" stroke="#2DE2E6" stroke-opacity="0.3"/>
+      <circle cx="256" cy="21" r="3.5" fill="#2DE2E6"/>
+      <text x="392" y="25" text-anchor="middle" fill="#9EECEF" font-size="11" font-weight="700" letter-spacing="1.1">CLAUDE CODE · CODEX · CURSOR · MCP</text>
     </g>
-    <text x="76" y="169" fill="url(#accent)" font-size="47" font-weight="730" letter-spacing="-1.8">Firewall your agent context.</text>
-    <text x="76" y="224" fill="url(#accent)" font-size="47" font-weight="730" letter-spacing="-1.8">Trim MCP bloat with proof.</text>
-    <text x="78" y="269" fill="#A8A7B8" font-size="17">Audit CLAUDE.md &amp; AGENTS.md · tree-shake MCP schemas · block secret &amp; prompt leaks</text>
 
-    <g transform="translate(76 314)">
-      <rect width="214" height="43" rx="13" fill="#7657FF"/>
-      <text x="107" y="27" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="700">npx @framy2/ctxwise agents</text>
-      <rect x="228" width="117" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
-      <text x="286.5" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Apache-2.0</text>
-      <rect x="359" width="126" height="43" rx="13" fill="#131724" stroke="#FFFFFF" stroke-opacity=".13"/>
-      <text x="422" y="27" text-anchor="middle" fill="#D7D5E3" font-size="14" font-weight="600">Zero telemetry</text>
+    <!-- Headline -->
+    <text x="56" y="146" fill="url(#headline)" font-size="50" font-weight="800" letter-spacing="-1.9">Firewall the context.</text>
+    <text x="56" y="202" fill="url(#headline)" font-size="50" font-weight="800" letter-spacing="-1.9">Trim the MCP bloat.</text>
+
+    <!-- Subtitle -->
+    <text x="56" y="242" fill="#B6B4CA" font-size="16.5" font-weight="500">
+      Stop paying 30,000+ startup tokens/turn for unused MCP tool schemas.
+    </text>
+    <text x="56" y="268" fill="#8E8CA6" font-size="15.5" font-weight="500">
+      Sync <tspan fill="#D9D6FF" font-weight="700">CLAUDE.md</tspan> &amp; <tspan fill="#D9D6FF" font-weight="700">AGENTS.md</tspan> · Scan secrets &amp; prompt injections.
+    </text>
+
+    <!-- Feature Pills -->
+    <g transform="translate(56 292)">
+      <rect width="166" height="40" rx="11" fill="#6D4AFF"/>
+      <text x="83" y="25" text-anchor="middle" fill="#FFFFFF" font-size="13.5" font-weight="700">100% Local · No API</text>
+
+      <rect x="178" width="160" height="40" rx="11" fill="#0F1D24" stroke="#2DE2E6" stroke-opacity="0.45"/>
+      <text x="258" y="25" text-anchor="middle" fill="#67F3F6" font-size="13.5" font-weight="700">-83% MCP Tokens</text>
+
+      <rect x="350" width="160" height="40" rx="11" fill="#121624" stroke="#FFFFFF" stroke-opacity="0.15"/>
+      <text x="430" y="25" text-anchor="middle" fill="#E2E0EE" font-size="13.5" font-weight="650">GitHub Action @v1</text>
+    </g>
+
+    <!-- Command bar -->
+    <g transform="translate(56 346)">
+      <rect width="510" height="42" rx="11" fill="#0A0E17" stroke="#8B7CFF" stroke-opacity="0.3"/>
+      <text x="18" y="26" fill="#2DE2E6" font-family="Consolas, monospace" font-size="14.5" font-weight="700">$</text>
+      <text x="34" y="26" fill="#F4F3FF" font-family="Consolas, monospace" font-size="14.5" font-weight="600">npx @framy2/ctxwise mcp-xray --probe-stdio</text>
+      <text x="436" y="26" fill="#7D7A94" font-size="12.5" font-weight="600">Apache-2.0</text>
     </g>
   </g>
 
-  <g transform="translate(736 30)" filter="url(#shadow)">
-    <rect width="397" height="360" rx="25" fill="#0D111D" fill-opacity=".9" stroke="#A99BFF" stroke-opacity=".18"/>
-    <circle cx="198" cy="176" r="119" fill="none" stroke="#A99BFF" stroke-opacity=".11"/>
-    <circle cx="198" cy="176" r="83" fill="none" stroke="#43E9EC" stroke-opacity=".14" stroke-dasharray="5 9"/>
-    <circle cx="198" cy="176" r="47" fill="#7556FF" fill-opacity=".08" stroke="#876DFF" stroke-opacity=".3"/>
-    <path d="M116 258 280 94" stroke="url(#ray)" stroke-width="9" stroke-linecap="round" filter="url(#glow)"/>
-    <path d="M131 273 295 109" stroke="#E9E6FF" stroke-opacity=".5" stroke-width="1.5"/>
-    <circle cx="198" cy="176" r="9" fill="#D9FEFF" filter="url(#glow)"/>
-    <circle cx="198" cy="176" r="3" fill="#FFFFFF"/>
+  <!-- Right Column: Live X-Ray Card -->
+  <g transform="translate(626 32)" font-family="Consolas, 'Cascadia Code', monospace">
+    <rect x="0" y="0" width="524" height="356" rx="18" fill="#0B0F1A" stroke="url(#cardBorder)" stroke-width="1.8"/>
+    <rect x="1" y="1" width="522" height="36" rx="17" fill="#121728"/>
+    <circle cx="20" cy="19" r="5" fill="#FF5F56"/>
+    <circle cx="36" cy="19" r="5" fill="#FFBD2E"/>
+    <circle cx="52" cy="19" r="5" fill="#27C93F"/>
+    <text x="262" y="23" text-anchor="middle" fill="#9492AD" font-size="12" font-weight="600">ctxwise — Live MCP &amp; Context X-Ray</text>
 
-    <g font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="650">
-      <g transform="translate(19 35)"><rect width="145" height="31" rx="10" fill="#151827" stroke="#8B7CFF" stroke-opacity=".25"/><circle cx="17" cy="15.5" r="3" fill="#8B7CFF"/><text x="28" y="20" fill="#C8C4D8">CLAUDE.md + AGENTS.md</text></g>
-      <g transform="translate(242 40)"><rect width="136" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">MCP tree-shaker</text></g>
-      <g transform="translate(21 279)"><rect width="136" height="31" rx="10" fill="#151827" stroke="#2DE2E6" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#2DE2E6"/><text x="28" y="20" fill="#C8C4D8">injection shield</text></g>
-      <g transform="translate(247 287)"><rect width="130" height="31" rx="10" fill="#151827" stroke="#43E7C4" stroke-opacity=".2"/><circle cx="17" cy="15.5" r="3" fill="#43E7C4"/><text x="28" y="20" fill="#C8C4D8">CI budget guard</text></g>
+    <!-- Token Overhead Bars -->
+    <g transform="translate(22 50)">
+      <text x="0" y="16" fill="#FF8FA3" font-size="12" font-weight="700">BEFORE (Raw MCP + Rules)</text>
+      <text x="480" y="16" text-anchor="end" fill="#FF6B8B" font-size="12.5" font-weight="700">34,200 tok/turn</text>
+      <rect x="0" y="23" width="480" height="11" rx="5.5" fill="#1C1626"/>
+      <rect x="0" y="23" width="460" height="11" rx="5.5" fill="url(#redBar)"/>
+
+      <text x="0" y="54" fill="#6EE7B7" font-size="12" font-weight="700">AFTER (CtxWise Tree-Shake + Diet)</text>
+      <text x="480" y="54" text-anchor="end" fill="#2DE2E6" font-size="12.5" font-weight="700">5,690 tok (-83%)</text>
+      <rect x="0" y="61" width="480" height="11" rx="5.5" fill="#102027"/>
+      <rect x="0" y="61" width="90" height="11" rx="5.5" fill="url(#cyanBar)"/>
     </g>
-    <g font-family="Consolas, monospace">
-      <text x="198" y="170" text-anchor="middle" fill="#89859A" font-size="9" letter-spacing="1.8">CONTEXT</text>
-      <text x="198" y="190" text-anchor="middle" fill="#F5F3FF" font-size="15" font-weight="700">FIREWALL</text>
+
+    <line x1="22" y1="136" x2="502" y2="136" stroke="#FFFFFF" stroke-opacity="0.08"/>
+
+    <!-- Server Rows -->
+    <g transform="translate(22 148)">
+      <rect x="0" y="0" width="480" height="39" rx="9" fill="#141327" stroke="#FF4D6D" stroke-opacity="0.35"/>
+      <circle cx="16" cy="19.5" r="4.5" fill="#FF4D6D"/>
+      <text x="30" y="16" fill="#F4F3FF" font-size="12.5" font-weight="700">github-mcp</text>
+      <text x="30" y="31" fill="#8E8CA8" font-size="10.5">26 tools · 22 unused schemas stripped</text>
+      <rect x="372" y="7.5" width="96" height="24" rx="6" fill="#2B1424"/>
+      <text x="420" y="23.5" text-anchor="middle" fill="#FF758F" font-size="11" font-weight="700">-16,400 tok</text>
+
+      <rect x="0" y="46" width="480" height="39" rx="9" fill="#141327" stroke="#F59E0B" stroke-opacity="0.35"/>
+      <circle cx="16" cy="65.5" r="4.5" fill="#F59E0B"/>
+      <text x="30" y="62" fill="#F4F3FF" font-size="12.5" font-weight="700">playwright-mcp</text>
+      <text x="30" y="77" fill="#8E8CA8" font-size="10.5">21 tools · 18 unused schemas stripped</text>
+      <rect x="372" y="53.5" width="96" height="24" rx="6" fill="#291F14"/>
+      <text x="420" y="69.5" text-anchor="middle" fill="#FBBF24" font-size="11" font-weight="700">-10,950 tok</text>
+
+      <rect x="0" y="92" width="480" height="39" rx="9" fill="#101B24" stroke="#10B981" stroke-opacity="0.35"/>
+      <circle cx="16" cy="111.5" r="4.5" fill="#10B981"/>
+      <text x="30" y="108" fill="#F4F3FF" font-size="12.5" font-weight="700">postgres-mcp</text>
+      <text x="30" y="123" fill="#8E8CA8" font-size="10.5">3 core tools kept · lean JSON schema</text>
+      <rect x="372" y="99.5" width="96" height="24" rx="6" fill="#0E2923"/>
+      <text x="420" y="115.5" text-anchor="middle" fill="#34D399" font-size="11" font-weight="700">1,120 tok OK</text>
     </g>
-    <rect x="32" y="331" width="333" height="3" rx="1.5" fill="#25293A"/>
-    <rect x="32" y="331" width="244" height="3" rx="1.5" fill="url(#ray)" filter="url(#glow)"/>
+
+    <!-- Bottom Status Pills -->
+    <g transform="translate(22 292)">
+      <rect x="0" y="0" width="232" height="48" rx="10" fill="#0E1E24" stroke="#2DE2E6" stroke-opacity="0.35"/>
+      <text x="14" y="20" fill="#2DE2E6" font-size="11" font-weight="700">[PASS] SHIELD FIREWALL</text>
+      <text x="14" y="37" fill="#B4C6CC" font-size="10.2">0 secrets · 0 prompt injections</text>
+
+      <rect x="248" y="0" width="232" height="48" rx="10" fill="#17142B" stroke="#8B5CFF" stroke-opacity="0.4"/>
+      <text x="262" y="20" fill="#C4B5FD" font-size="11" font-weight="700">[PASS] CODEX &amp; CLAUDE SYNC</text>
+      <text x="262" y="37" fill="#BDB9D6" font-size="10.2">32 KiB limit OK · rules aligned</text>
+    </g>
   </g>
 </svg>
