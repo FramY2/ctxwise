@@ -25,7 +25,7 @@ The easiest way to make your first contribution to CtxWise is adding a curated s
      - "Run `npm run check` and `npm test` before completing a task."
    ```
 3. Run `npm test` — `tests/unit/presets.test.ts` automatically validates every `.yaml` file in `presets/`!
-4. Open a Pull Request.
+4. Open a Pull Request referencing one of our open [`good first issue` tickets (`#23`–`#28`)](https://github.com/FramY2/ctxwise/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 ## Before opening a larger change
 
