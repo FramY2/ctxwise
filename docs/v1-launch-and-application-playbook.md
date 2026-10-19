@@ -123,3 +123,19 @@ foreach ($entry in $stacks) {
 
 > Primary maintainer of CtxWise (`FramY2/ctxwise`, npm `@framy2/ctxwise`), an Apache-2.0 context firewall, MCP schema profiler, budget guard, and native profile compiler for OpenAI Codex (`AGENTS.md`, `config.toml`) and multi-agent repos. Paired benchmarks show 29.1% lower turn token usage at 20/20 quality gates. I will use ChatGPT Pro, Codex, and API credits to automate PR reviews, expand Codex app-server & MCP schema diagnostics, and run continuous security audits with Codex Security.
 > _(496 characters — fits the strict 500-character limit!)_
+
+---
+
+## 5. Active Ecosystem Pull Requests & Launch Links
+
+- **Hacker News (`Show HN`):** https://news.ycombinator.com/item?id=50125990
+- **OpenAI Codex Official Discussion:** https://github.com/openai/codex/discussions/39516#discussioncomment-18983035
+- **Awesome List Pull Requests (8 Open):**
+  1. [`rohitg00/awesome-claude-code-toolkit#853`](https://github.com/rohitg00/awesome-claude-code-toolkit/pull/853)
+  2. [`RoggeOhta/awesome-codex-cli#434`](https://github.com/RoggeOhta/awesome-codex-cli/pull/434)
+  3. [`jqueryscript/awesome-claude-code#793`](https://github.com/jqueryscript/awesome-claude-code/pull/793)
+  4. [`ai-boost/awesome-harness-engineering#343`](https://github.com/ai-boost/awesome-harness-engineering/pull/343)
+  5. [`travisvn/awesome-claude-skills#1338`](https://github.com/travisvn/awesome-claude-skills/pull/1338)
+  6. [`Picrew/awesome-agent-harness#119`](https://github.com/Picrew/awesome-agent-harness/pull/119)
+  7. [`Meirtz/Awesome-Context-Engineering#134`](https://github.com/Meirtz/Awesome-Context-Engineering/pull/134)
+  8. [`BehiSecc/awesome-claude-skills#998`](https://github.com/BehiSecc/awesome-claude-skills/pull/998)
