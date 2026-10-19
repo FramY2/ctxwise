@@ -2,10 +2,10 @@
 
 ## Supported versions
 
-| Version                      | Supported |
-| ---------------------------- | --------- |
-| 0.1.x                        | Yes       |
-| Earlier/unreleased snapshots | No        |
+| Version | Supported |
+| ------- | --------- |
+| 1.0.x   | Yes       |
+| < 1.0.0 | No        |
 
 ## Report privately
 
