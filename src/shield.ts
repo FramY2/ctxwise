@@ -77,7 +77,7 @@ const SECRET_RULES: SecretRule[] = [
     id: "generic-env-secret",
     severity: "high",
     pattern:
-      /^\s*["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']([A-Za-z0-9/+_=-]{16,})["']/i,
+      /^\s*["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?([A-Za-z0-9/+_.@:$!%^&*~=-]{16,})["']?(?:\s*(?:#|\/\/).*)?$/i,
     message: "Plaintext credential assignment detected in agent configuration.",
   },
 ];
@@ -116,13 +116,17 @@ function maskSnippet(line: string): string {
       /\b(github_pat_[A-Za-z0-9_]{6})[A-Za-z0-9_]{10,}\b/g,
       "$1***REDACTED***",
     )
-    .replace(/\b((?:AKIA|ASIA)[0-9A-Z]{4})[0-9A-Z]{12}\b/g, "$1***REDACTED***");
+    .replace(/\b((?:AKIA|ASIA)[0-9A-Z]{4})[0-9A-Z]{12}\b/g, "$1***REDACTED***")
+    .replace(
+      /^(\s*["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?)([A-Za-z0-9/+_.@:$!%^&*~=-]{4})[A-Za-z0-9/+_.@:$!%^&*~=-]{12,}(["']?(?:\s*(?:#|\/\/).*)?)$/i,
+      "$1$2***REDACTED***$3",
+    );
   return masked.length > 100 ? `${masked.slice(0, 97)}...` : masked;
 }
 
-function isPlaceholderSecret(line: string): boolean {
+function isPlaceholderSecret(value: string): boolean {
   return /(?:\$\{[A-Z0-9_]+\}|\$[A-Z0-9_]+|\*\*\*REDACTED\*\*\*|YOUR_[A-Z0-9_]+|example|placeholder|dummy|fake|test[_-]?key|<[^>]+>)/i.test(
-    line,
+    value,
   );
 }
 
@@ -155,20 +159,26 @@ export function scanContentWithShield(
       });
     }
 
-    if (!isPlaceholderSecret(line)) {
-      for (const rule of SECRET_RULES) {
-        if (rule.pattern.test(line)) {
-          findings.push({
-            id: rule.id,
-            category: "secret-exposure",
-            severity: rule.severity,
-            path: displayPath,
-            line: lineNumber,
-            message: rule.message,
-            snippet: maskSnippet(line),
-          });
-          break;
+    for (const rule of SECRET_RULES) {
+      const match = rule.pattern.exec(line);
+      if (match) {
+        const candidateValue = match[1] ?? match[0];
+        if (
+          rule.id !== "private-key-block" &&
+          isPlaceholderSecret(candidateValue)
+        ) {
+          continue;
         }
+        findings.push({
+          id: rule.id,
+          category: "secret-exposure",
+          severity: rule.severity,
+          path: displayPath,
+          line: lineNumber,
+          message: rule.message,
+          snippet: maskSnippet(line),
+        });
+        break;
       }
     }
 

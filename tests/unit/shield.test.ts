@@ -34,6 +34,26 @@ describe("Context Shield scanner", () => {
     expect(findings.some((f) => f.snippet.includes("***REDACTED***"))).toBe(
       true,
     );
+    const genericFinding = findings.find((f) => f.id === "generic-env-secret");
+    expect(genericFinding?.snippet).toContain("***REDACTED***");
+    expect(genericFinding?.snippet).not.toContain(
+      "super_secret_production_token_value_123",
+    );
+  });
+
+  it("redacts unquoted generic env secrets and detects real keys sharing a line with placeholder comments", () => {
+    const sample = [
+      "DB_PASSWORD=s3cr3t_pr0duction_pa55word_x9!@",
+      "ANTHROPIC_API_KEY=sk-ant-api03-1234567890abcdefghijklmnop # not a fake example",
+    ].join("\n");
+
+    const findings = scanContentWithShield(sample, ".env.agent");
+    expect(findings).toHaveLength(2);
+    expect(findings[0]?.id).toBe("generic-env-secret");
+    expect(findings[0]?.snippet).toContain("s3cr***REDACTED***");
+    expect(findings[0]?.snippet).not.toContain("s3cr3t_pr0duction_pa55word_x9");
+    expect(findings[1]?.id).toBe("anthropic-api-key");
+    expect(findings[1]?.snippet).toContain("***REDACTED***");
   });
 
   it("detects prompt-injection overrides, covert HTML comments, and hidden Unicode characters", () => {

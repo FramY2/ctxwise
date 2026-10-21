@@ -5,6 +5,15 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-21
+
+### Fixed
+
+- **Security Shield (`ctxwise shield`)**:
+  - Redacts captured values of `generic-env-secret` findings inside `maskSnippet` so detected credentials are never printed in plaintext in CI logs.
+  - Detects both quoted and unquoted credential assignments (including symbols such as `@ . : $ ! % ^ & * ~`) and ignores trailing inline comments.
+  - Evaluates `isPlaceholderSecret` against the captured credential value rather than the full line so real keys accompanied by inline comments containing words like `example` or `fake` are never bypassed.
+
 ## [1.0.0] - 2026-10-15
 
 ### Added
