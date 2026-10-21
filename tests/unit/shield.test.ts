@@ -56,6 +56,23 @@ describe("Context Shield scanner", () => {
     expect(findings[1]?.snippet).toContain("***REDACTED***");
   });
 
+  it("detects and masks generic credentials in JSON env blocks and shell export statements", () => {
+    const sample = [
+      '      "DB_PASSWORD": "s3cr3t_pr0duction_pa55word_x9",',
+      '{"ANTHROPIC_API_KEY": "s3cr3t_pr0duction_pa55word_x9"}',
+      "export DB_PASSWORD=s3cr3t_pr0duction_pa55word_x9",
+      '      "DB_PASSWORD": "${DB_PASSWORD}",',
+    ].join("\n");
+
+    const findings = scanContentWithShield(sample, ".mcp.json");
+    expect(findings).toHaveLength(3);
+    for (const finding of findings) {
+      expect(finding.id).toBe("generic-env-secret");
+      expect(finding.snippet).toContain("s3cr***REDACTED***");
+      expect(finding.snippet).not.toContain("s3cr3t_pr0duction_pa55word_x9");
+    }
+  });
+
   it("detects prompt-injection overrides, covert HTML comments, and hidden Unicode characters", () => {
     const sample = [
       "# Project Rules",

@@ -77,7 +77,7 @@ const SECRET_RULES: SecretRule[] = [
     id: "generic-env-secret",
     severity: "high",
     pattern:
-      /^\s*["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?([A-Za-z0-9/+_.@:$!%^&*~=-]{16,})["']?(?:\s*(?:#|\/\/).*)?$/i,
+      /(?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?([A-Za-z0-9/+_.@:$!%^&*~=-]{16,})["']?(?=\s*(?:#|\/\/)|[\s,;}\])]|\s*$)/i,
     message: "Plaintext credential assignment detected in agent configuration.",
   },
 ];
@@ -118,7 +118,7 @@ function maskSnippet(line: string): string {
     )
     .replace(/\b((?:AKIA|ASIA)[0-9A-Z]{4})[0-9A-Z]{12}\b/g, "$1***REDACTED***")
     .replace(
-      /^(\s*["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?)([A-Za-z0-9/+_.@:$!%^&*~=-]{4})[A-Za-z0-9/+_.@:$!%^&*~=-]{12,}(["']?(?:\s*(?:#|\/\/).*)?)$/i,
+      /((?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|PRIVATE_KEY|PASSWORD|AUTH_TOKEN))["']?\s*[:=]\s*["']?)([A-Za-z0-9/+_.@:$!%^&*~=-]{4})[A-Za-z0-9/+_.@:$!%^&*~=-]{12,}(["']?)/gi,
       "$1$2***REDACTED***$3",
     );
   return masked.length > 100 ? `${masked.slice(0, 97)}...` : masked;
