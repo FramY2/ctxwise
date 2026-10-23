@@ -73,6 +73,28 @@ describe("Context Shield scanner", () => {
     }
   });
 
+  it("detects and masks extended credential variable names including TOKEN, SECRET, PWD, PASSPHRASE, and DATABASE_URL", () => {
+    const sample = [
+      "SLACK_TOKEN=xoxb_production_secret_token_987654321",
+      "NPM_TOKEN=npm_production_secret_token_987654321",
+      "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYzSecretKey",
+      "DATABASE_URL=postgres://admin:s3cr3t_p4ssw0rd@db.internal:5432/prod",
+      "MYSQL_PWD=my_super_secret_mysql_pwd_12345",
+      "GPG_PASSPHRASE=my_super_secret_gpg_passphrase_123",
+      "SIGNING_KEY=my_super_secret_signing_key_value_123",
+      '{"A_API_TOKEN":"first_secret_token_value_123456","B_PASSWORD":"second_secret_password_123456"}',
+    ].join("\n");
+
+    const findings = scanContentWithShield(sample, ".env.agent");
+    expect(findings).toHaveLength(8);
+    for (const finding of findings) {
+      expect(finding.id).toBe("generic-env-secret");
+      expect(finding.snippet).toContain("***REDACTED***");
+      expect(finding.snippet).not.toContain("first_secret_token_value_123456");
+      expect(finding.snippet).not.toContain("second_secret_password_123456");
+    }
+  });
+
   it("detects prompt-injection overrides, covert HTML comments, and hidden Unicode characters", () => {
     const sample = [
       "# Project Rules",
