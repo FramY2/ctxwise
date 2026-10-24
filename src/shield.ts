@@ -170,8 +170,7 @@ export function scanContentWithShield(
     for (const rule of SECRET_RULES) {
       const match = rule.pattern.exec(line);
       if (match) {
-        const candidateValue =
-          match[1] ?? match[2] ?? match[3] ?? match[0];
+        const candidateValue = match[1] ?? match[2] ?? match[3] ?? match[0];
         if (
           rule.id !== "private-key-block" &&
           isPlaceholderSecret(candidateValue)

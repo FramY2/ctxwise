@@ -113,7 +113,9 @@ describe("Context Shield scanner", () => {
       expect(finding.snippet).toContain("***REDACTED***");
       expect(finding.snippet).not.toContain("p4ssw0rd_secret_val");
       expect(finding.snippet).not.toContain("m0ng0_s3cr3t_pass");
-      expect(finding.snippet).not.toContain("wJalrXUtnFEMI/K7MDENG/bPxRfiCYzSecretKey==");
+      expect(finding.snippet).not.toContain(
+        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzSecretKey==",
+      );
     }
   });
 
