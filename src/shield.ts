@@ -77,7 +77,7 @@ const SECRET_RULES: SecretRule[] = [
     id: "generic-env-secret",
     severity: "high",
     pattern:
-      /(?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|AUTH_TOKEN|PRIVATE_KEY|PASSWORD|PASSPHRASE|PWD|TOKEN|SECRET|ACCESS_KEY|_KEY|DATABASE_URL|_DSN|_DSN_URL))["']?\s*[:=]\s*["']?([A-Za-z0-9/+_.@:$!%^&*~=-]{16,})["']?(?=\s*(?:#|\/\/)|[\s,;}\])]|\s*$)/i,
+      /[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s"'/@]*:([^\s"'/@]{6,})@[^\s"']+|AccountKey=([A-Za-z0-9+/=]{16,})|(?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|AUTH_TOKEN|PRIVATE_KEY|PASSWORD|PASSPHRASE|_PWD|TOKEN|SECRET|ACCESS_KEY|_KEY))["']?\s*[:=]\s*["']?([A-Za-z0-9/+_.@:$!%^&*~=-]{16,})["']?(?=\s*(?:#|\/\/)|[\s,;}\])]|\s*$)/i,
     message: "Plaintext credential assignment detected in agent configuration.",
   },
 ];
@@ -118,14 +118,22 @@ function maskSnippet(line: string): string {
     )
     .replace(/\b((?:AKIA|ASIA)[0-9A-Z]{4})[0-9A-Z]{12}\b/g, "$1***REDACTED***")
     .replace(
-      /((?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|AUTH_TOKEN|PRIVATE_KEY|PASSWORD|PASSPHRASE|PWD|TOKEN|SECRET|ACCESS_KEY|_KEY|DATABASE_URL|_DSN|_DSN_URL))["']?\s*[:=]\s*["']?)([A-Za-z0-9/+_.@:$!%^&*~=-]{4})[A-Za-z0-9/+_.@:$!%^&*~=-]{12,}(["']?)/gi,
+      /(:\/\/[^\s"'/@]*:)([^\s"'/@]{2})[^\s"'/@]{4,}(@)/gi,
+      "$1$2***REDACTED***$3",
+    )
+    .replace(
+      /(AccountKey=)([A-Za-z0-9+/=]{4})[A-Za-z0-9+/=]{12,}/gi,
+      "$1$2***REDACTED***",
+    )
+    .replace(
+      /((?:^|[\s{,;])(?:export\s+)?["']?(?:[A-Z0-9_]*(?:API_KEY|API_SECRET|SECRET_KEY|CLIENT_SECRET|ACCESS_TOKEN|REFRESH_TOKEN|AUTH_TOKEN|PRIVATE_KEY|PASSWORD|PASSPHRASE|_PWD|TOKEN|SECRET|ACCESS_KEY|_KEY))["']?\s*[:=]\s*["']?)([A-Za-z0-9/+_.@:$!%^&*~=-]{4})[A-Za-z0-9/+_.@:$!%^&*~=-]{12,}(["']?)/gi,
       "$1$2***REDACTED***$3",
     );
-  return masked.length > 100 ? `${masked.slice(0, 97)}...` : masked;
+  return masked.length > 140 ? `${masked.slice(0, 137)}...` : masked;
 }
 
 function isPlaceholderSecret(value: string): boolean {
-  return /(?:\$\{[A-Z0-9_]+\}|\$[A-Z0-9_]+|\*\*\*REDACTED\*\*\*|YOUR_[A-Z0-9_]+|example|placeholder|dummy|fake|test[_-]?key|<[^>]+>)/i.test(
+  return /(?:\$\{[A-Z0-9_]+\}|\$[A-Z0-9_]+|\*\*\*REDACTED\*\*\*|YOUR[-_][A-Z0-9_-]+|(?:goes|put)[-_]here|changeme|example|placeholder|dummy|fake|test[_-]?key|<[^>]+>)/i.test(
     value,
   );
 }
@@ -162,7 +170,8 @@ export function scanContentWithShield(
     for (const rule of SECRET_RULES) {
       const match = rule.pattern.exec(line);
       if (match) {
-        const candidateValue = match[1] ?? match[0];
+        const candidateValue =
+          match[1] ?? match[2] ?? match[3] ?? match[0];
         if (
           rule.id !== "private-key-block" &&
           isPlaceholderSecret(candidateValue)

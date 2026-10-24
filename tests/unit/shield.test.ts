@@ -95,6 +95,28 @@ describe("Context Shield scanner", () => {
     }
   });
 
+  it("ignores bare PWD, credential-free DSNs, and your-*-here placeholders while catching URI userinfo and AccountKey secrets", () => {
+    const sample = [
+      "PWD=/home/runner/work/project/subdir",
+      "DATABASE_URL=postgres://localhost:5432/mydb",
+      "TOKEN=your-token-goes-here-instead-of-real",
+      "REDIS_URL=redis://:p4ssw0rd_secret_val@cache:6379/0",
+      "MONGODB_URI=mongodb+srv://user:m0ng0_s3cr3t_pass@cluster/db",
+      "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dev;AccountKey=wJalrXUtnFEMI/K7MDENG/bPxRfiCYzSecretKey==",
+    ].join("\n");
+
+    const findings = scanContentWithShield(sample, ".env.agent");
+    expect(findings).toHaveLength(3);
+    expect(findings.map((f) => f.line)).toEqual([4, 5, 6]);
+    for (const finding of findings) {
+      expect(finding.id).toBe("generic-env-secret");
+      expect(finding.snippet).toContain("***REDACTED***");
+      expect(finding.snippet).not.toContain("p4ssw0rd_secret_val");
+      expect(finding.snippet).not.toContain("m0ng0_s3cr3t_pass");
+      expect(finding.snippet).not.toContain("wJalrXUtnFEMI/K7MDENG/bPxRfiCYzSecretKey==");
+    }
+  });
+
   it("detects prompt-injection overrides, covert HTML comments, and hidden Unicode characters", () => {
     const sample = [
       "# Project Rules",

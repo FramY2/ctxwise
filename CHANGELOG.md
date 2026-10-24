@@ -5,6 +5,15 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-24
+
+### Fixed
+
+- **Security Shield (`ctxwise shield`)**:
+  - Detects and masks generic credentials in JSON env blocks (trailing commas, inline braces) and shell `export` statements (`fe554c4`).
+  - Expands credential suffix coverage (`TOKEN`, `SECRET`, `_PWD`, `PASSPHRASE`, `ACCESS_KEY`, `_KEY`), URI userinfo passwords (`://user:pass@`), and `AccountKey=` connection strings while avoiding false positives on bare `PWD=/path` working directories, credential-free DSNs (`postgres://localhost:5432/mydb`), and `your-...-here` placeholders.
+  - Advances floating `v1` tag to `v1.0.2` so `uses: FramY2/ctxwise@v1` includes all latest `shield` rules.
+
 ## [1.0.1] - 2026-10-21
 
 ### Fixed

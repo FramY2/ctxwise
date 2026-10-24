@@ -1,6 +1,6 @@
 {
   "name": "ctxwise",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CtxWise: local-first context firewall, MCP schema tree-shaker, budget guards, drift detection, and usage receipts.",
   "author": {
     "name": "CtxWise contributors"
