@@ -361,20 +361,36 @@ describe("CtxWise CLI", () => {
       preset: { name: "sveltekit" },
     });
 
-    const { stdout: doctorOut } = await execFileAsync(process.execPath, [
-      tsx,
-      cli,
-      "codex-doctor",
-      "--codex-home",
-      codexHome,
-      "--project",
-      projectRoot,
-      "--json",
-    ]);
+    const nestedDir = join(projectRoot, "packages", "web");
+    await mkdir(nestedDir, { recursive: true });
+    await writeFile(
+      join(nestedDir, "AGENTS.override.md"),
+      "Web package override.\n",
+      "utf8",
+    );
+
+    const { stdout: doctorOut } = await execFileAsync(
+      process.execPath,
+      [
+        tsx,
+        cli,
+        "codex-doctor",
+        "--codex-home",
+        codexHome,
+        "--cwd",
+        nestedDir,
+        "--json",
+      ],
+      { cwd: root, timeout: 10_000 },
+    );
     expect(JSON.parse(doctorOut)).toMatchObject({
       status: "healthy",
       truncated: false,
       maxBytes: 32768,
+      chain: [
+        { path: "project/AGENTS.md" },
+        { path: "project/packages/web/AGENTS.override.md" },
+      ],
     });
 
     await writeFile(

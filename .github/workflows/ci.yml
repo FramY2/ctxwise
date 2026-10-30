@@ -46,7 +46,9 @@ jobs:
         if: matrix.node == 24
         run: |
           node dist/cli.js shield --project . --fail-on-risk
+          node dist/cli.js codex-doctor --project . --codex-home .ctxwise/empty-home --fail-on-issues
           node dist/cli.js agents --project . --codex-home .ctxwise/empty-home --claude-home .ctxwise/empty-home
+          node dist/cli.js mcp-prune --project . --codex-home .ctxwise/empty-home --claude-home .ctxwise/empty-home
           node dist/cli.js preset
 
       - name: Validate Codex plugin and skill

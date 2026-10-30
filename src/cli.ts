@@ -78,10 +78,14 @@ function claudeHome(value?: string): string {
   );
 }
 
-async function commandProjectScope(home: string, project?: string) {
+async function commandProjectScope(
+  home: string,
+  project?: string,
+  cwd?: string,
+) {
   const base = {
     codexHome: home,
-    workingDirectory: resolve(process.cwd()),
+    workingDirectory: resolve(cwd ?? process.cwd()),
   };
   return resolveProjectScope(
     project ? { ...base, explicitProjectRoot: resolve(project) } : base,
@@ -646,7 +650,7 @@ program
   .option("--json", "Print structured JSON", false)
   .action(async (options) => {
     const home = codexHome(options.codexHome);
-    const scope = await commandProjectScope(home, options.project);
+    const scope = await commandProjectScope(home, options.project, options.cwd);
     const workingDirectory = options.cwd
       ? resolve(options.cwd)
       : scope.workingDirectory;

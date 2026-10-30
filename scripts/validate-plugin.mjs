@@ -234,6 +234,17 @@ if (marketplace) {
         if (/\b(?:TODO|FIXME|CHANGEME)\b/i.test(skillText + agentText)) {
           fail(`${skillRelative}: unresolved placeholder marker`);
         }
+        const topLevelSkillRelative = path.join(
+          "skills",
+          item.name,
+          "SKILL.md",
+        );
+        const topLevelSkillText = await readText(topLevelSkillRelative);
+        if (topLevelSkillText && topLevelSkillText !== skillText) {
+          fail(
+            `${topLevelSkillRelative}: must stay identical to ${skillRelative}`,
+          );
+        }
       }
     }
   }

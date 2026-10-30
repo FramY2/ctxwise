@@ -321,6 +321,72 @@ describe("MCP Schema X-Ray and Tree-Shaker", () => {
 
       const rendered = renderMcpPruneReport(liveReport);
       expect(rendered).toContain("CtxWise mcp-prune · 2 servers disabled");
+
+      const unknownReport = await pruneMcpServers({
+        projectRoot,
+        disableServers: ["nonexistent_server"],
+      });
+      expect(unknownReport.disabledServers).toEqual([]);
+      expect(unknownReport.modifiedFiles).toEqual([]);
+      expect(unknownReport.recommendations.join(" ")).toContain(
+        "None of the requested servers",
+      );
+      expect(await readFile(codexTomlPath, "utf8")).not.toContain(
+        "nonexistent_server",
+      );
+    });
+  });
+
+  it("quotes scoped TOML server names, handles commented headers, and suppresses codex-home servers overridden in project config", async () => {
+    await withTempDir("ctxwise-mcp-prune-scoped-", async (root) => {
+      const projectRoot = join(root, "project");
+      const codexHome = join(root, "codex-home");
+      await mkdir(join(projectRoot, ".codex"), { recursive: true });
+      await mkdir(codexHome, { recursive: true });
+
+      const codexTomlPath = join(projectRoot, ".codex", "config.toml");
+      await writeFile(
+        codexTomlPath,
+        [
+          "[mcp_servers.commented_srv] # production instance",
+          'command = "mcp-commented"',
+        ].join("\n"),
+        "utf8",
+      );
+
+      await writeFile(
+        join(codexHome, "config.toml"),
+        [
+          '[mcp_servers."@fainir/recall"]',
+          'command = "npx"',
+          'args = ["-y", "@fainir/recall"]',
+        ].join("\n"),
+        "utf8",
+      );
+
+      const pruneRes = await pruneMcpServers({
+        projectRoot,
+        codexHome,
+        disableServers: ["@fainir/recall", "commented_srv"],
+      });
+      expect(pruneRes.disabledServers).toEqual([
+        "@fainir/recall",
+        "commented_srv",
+      ]);
+
+      const updatedToml = await readFile(codexTomlPath, "utf8");
+      expect(updatedToml).toContain(
+        '[mcp_servers."@fainir/recall"]\nenabled = false',
+      );
+      expect(updatedToml).toContain(
+        "[mcp_servers.commented_srv] # production instance\nenabled = false",
+      );
+
+      const remaining = await discoverMcpDeclarations({
+        projectRoot,
+        codexHome,
+      });
+      expect(remaining).toEqual([]);
     });
   });
 });

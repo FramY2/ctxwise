@@ -165,11 +165,19 @@ export async function discoverMcpDeclarations(options: {
   }
 
   const projectCodexToml = join(root, ".codex", "config.toml");
+  const projectCodexNames = new Set<string>();
   if (await exists(projectCodexToml)) {
     try {
       const parsed = parseToml(
         await readFile(projectCodexToml, "utf8"),
       ) as Record<string, unknown>;
+      if (parsed.mcp_servers && typeof parsed.mcp_servers === "object") {
+        for (const name of Object.keys(
+          parsed.mcp_servers as Record<string, unknown>,
+        )) {
+          projectCodexNames.add(name);
+        }
+      }
       declarations.push(...extractTomlMcpServers(parsed, "codex-project"));
     } catch {
       // Ignore malformed TOML
@@ -184,7 +192,10 @@ export async function discoverMcpDeclarations(options: {
           string,
           unknown
         >;
-        declarations.push(...extractTomlMcpServers(parsed, "codex-home"));
+        for (const decl of extractTomlMcpServers(parsed, "codex-home")) {
+          if (projectCodexNames.has(decl.name)) continue;
+          declarations.push(decl);
+        }
       } catch {
         // Ignore
       }
@@ -492,13 +503,19 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function formatTomlMcpHeaderKey(serverName: string): string {
+  return /^[A-Za-z0-9_-]+$/.test(serverName)
+    ? serverName
+    : JSON.stringify(serverName);
+}
+
 function disableServerInTomlContent(
   content: string,
   serverName: string,
 ): { updated: string; changed: boolean } {
   const escaped = escapeRegExp(serverName);
   const headerRegex = new RegExp(
-    `^\\s*\\[mcp_servers\\.(?:"${escaped}"|'${escaped}'|${escaped})\\]\\s*$`,
+    `^\\s*\\[mcp_servers\\.(?:"${escaped}"|'${escaped}'|${escaped})\\]\\s*(?:#.*)?$`,
   );
   const lines = content.split(/\r?\n/);
   const headerIdx = lines.findIndex((line) => headerRegex.test(line));
@@ -506,15 +523,19 @@ function disableServerInTomlContent(
   if (headerIdx === -1) {
     const trimmed = content.trimEnd();
     const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : "";
+    const formattedKey = formatTomlMcpHeaderKey(serverName);
     return {
-      updated: `${prefix}[mcp_servers.${serverName}]\nenabled = false\n`,
+      updated: `${prefix}[mcp_servers.${formattedKey}]\nenabled = false\n`,
       changed: true,
     };
   }
 
   let nextSectionIdx = lines.length;
   for (let i = headerIdx + 1; i < lines.length; i++) {
-    if (/^\s*\[.+\]\s*$/.test(lines[i]!)) {
+    if (
+      /^\s*\[[^[\]]+\]\s*(?:#.*)?$/.test(lines[i]!) &&
+      !lines[i]!.includes("=")
+    ) {
       nextSectionIdx = i;
       break;
     }
@@ -623,15 +644,11 @@ export async function pruneMcpServers(options: {
         )
         .map((d) => d.name),
     );
-    const tomlTargets = requestedDisable.filter(
-      (name) => codexDeclaredNames.has(name) || !disabledServers.has(name),
+    const tomlTargets = requestedDisable.filter((name) =>
+      codexDeclaredNames.has(name),
     );
 
-    if (
-      tomlTargets.length > 0 &&
-      ((await exists(projectCodexToml)) ||
-        tomlTargets.some((n) => codexDeclaredNames.has(n)))
-    ) {
+    if (tomlTargets.length > 0) {
       const hadToml = await exists(projectCodexToml);
       const originalToml = hadToml
         ? await readFile(projectCodexToml, "utf8")
@@ -640,7 +657,6 @@ export async function pruneMcpServers(options: {
       const disabledInToml: string[] = [];
 
       for (const name of tomlTargets) {
-        if (!hadToml && !codexDeclaredNames.has(name)) continue;
         const res = disableServerInTomlContent(updatedToml, name);
         if (res.changed) {
           updatedToml = res.updated;

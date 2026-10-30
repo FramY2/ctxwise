@@ -5,6 +5,18 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-30
+
+### Added
+
+- **CLI Parity for `codex-doctor`, `mcp-prune`, and `init --preset sveltekit-typescript`**:
+  - Registered `ctxwise codex-doctor` (`src/codex-doctor.ts`) to audit hierarchical `AGENTS.override.md` / `AGENTS.md` instruction chains against OpenAI Codex CLI's `32,768`-byte (`project_doc_max_bytes`) truncation boundary, detect empty override shadowing, and validate user/project `config.toml`.
+  - Registered `ctxwise mcp-prune` (`src/mcp-xray.ts`) to inspect or disable high-weight MCP servers (`--disable <server,...>`) across `.mcp.json` and `.codex/config.toml` with `--dry-run`, `--json`, automatic `.bak` backups, and quoted TOML key support.
+  - Added `ctxwise init` (`--preset sveltekit-typescript` and stack aliases) and top-level `skills/ctxwise/SKILL.md`.
+- **Claude & Codex Config Resolution**:
+  - Updated `--claude-home` / `CLAUDE_CONFIG_DIR` resolution in `mcp-xray`, `mcp-prune`, and `agents` to locate `.claude.json` and `CLAUDE.md` whether passed as `~` or `~/.claude`.
+  - Updated `.agents/plugins/marketplace.json` authentication policy to `ON_USE`.
+
 ## [1.0.2] - 2026-10-24
 
 ### Fixed
