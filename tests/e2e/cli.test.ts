@@ -336,4 +336,70 @@ describe("CtxWise CLI", () => {
       ]),
     ).rejects.toMatchObject({ code: 2 });
   });
+
+  it("runs codex-doctor, mcp-prune, and init --preset sveltekit-typescript from the CLI", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-new-cmds-cli-"));
+    created.push(root);
+    const codexHome = join(root, ".codex");
+    const projectRoot = join(root, "repo");
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+    ]);
+
+    const { stdout: initOut } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "init",
+      "--preset",
+      "sveltekit-typescript",
+      "--project",
+      projectRoot,
+      "--json",
+    ]);
+    expect(JSON.parse(initOut)).toMatchObject({
+      preset: { name: "sveltekit" },
+    });
+
+    const { stdout: doctorOut } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "codex-doctor",
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--json",
+    ]);
+    expect(JSON.parse(doctorOut)).toMatchObject({
+      status: "healthy",
+      truncated: false,
+      maxBytes: 32768,
+    });
+
+    await writeFile(
+      join(projectRoot, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          demo_server: { command: "npx", args: ["-y", "demo-mcp"] },
+        },
+      }),
+      "utf8",
+    );
+
+    const { stdout: pruneOut } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "mcp-prune",
+      "--project",
+      projectRoot,
+      "--disable",
+      "demo_server",
+      "--json",
+    ]);
+    expect(JSON.parse(pruneOut)).toMatchObject({
+      mode: "prune",
+      disabledServers: ["demo_server"],
+    });
+  });
 });

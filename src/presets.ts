@@ -76,6 +76,23 @@ export function renderPresetGuidanceMarkdown(preset: CtxWisePreset): string {
   return `${lines.join("\n")}\n`;
 }
 
+export const PRESET_ALIASES: Record<string, string> = {
+  "sveltekit-typescript": "sveltekit",
+  svelte: "sveltekit",
+  nextjs: "nextjs-typescript",
+  fastapi: "python-fastapi",
+  rust: "rust-cargo",
+  go: "go-microservice",
+  mcp: "mcp-server-dev",
+  turbo: "monorepo-turbo",
+  turborepo: "monorepo-turbo",
+};
+
+export function resolvePresetName(name: string): string {
+  const normalized = name.trim().toLowerCase();
+  return PRESET_ALIASES[normalized] ?? normalized;
+}
+
 export async function applyPresetToProject(options: {
   presetName: string;
   projectRoot: string;
@@ -87,7 +104,10 @@ export async function applyPresetToProject(options: {
   guidancePaths: string[];
 }> {
   const presets = await listBuiltInPresets(options.presetsDir);
-  const preset = presets.find((item) => item.name === options.presetName);
+  const canonicalName = resolvePresetName(options.presetName);
+  const preset = presets.find(
+    (item) => item.name === options.presetName || item.name === canonicalName,
+  );
   if (!preset) {
     const available = presets.map((p) => p.name).join(", ") || "none";
     throw new Error(

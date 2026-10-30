@@ -25,6 +25,7 @@ import {
 } from "./budget.js";
 import { loadPriceCatalog } from "./catalog.js";
 import { resolveCodexInvocation } from "./codex-command.js";
+import { renderCodexDoctorReport, runCodexDoctor } from "./codex-doctor.js";
 import { renderContextMap } from "./context-map.js";
 import {
   compareCapabilityLocks,
@@ -37,7 +38,10 @@ import {
   analyzeMcpToolsPayload,
   buildMcpXrayReport,
   discoverMcpDeclarations,
+  expandHomePath,
   probeStdioMcpServer,
+  pruneMcpServers,
+  renderMcpPruneReport,
   renderMcpXrayReport,
   type McpToolSchemaMetric,
 } from "./mcp-xray.js";
@@ -63,7 +67,15 @@ function collect(value: string, previous: string[]): string[] {
 }
 
 function codexHome(value?: string): string {
-  return resolve(value ?? process.env.CODEX_HOME ?? join(homedir(), ".codex"));
+  return expandHomePath(
+    value ?? process.env.CODEX_HOME ?? join(homedir(), ".codex"),
+  );
+}
+
+function claudeHome(value?: string): string {
+  return expandHomePath(
+    value ?? process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
+  );
 }
 
 async function commandProjectScope(home: string, project?: string) {
@@ -616,6 +628,46 @@ program
   });
 
 program
+  .command("codex-doctor")
+  .description(
+    "Audit OpenAI Codex AGENTS.override.md / AGENTS.md hierarchy against the 32 KiB truncation limit",
+  )
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option(
+    "--cwd <path>",
+    "Working directory inside project to trace hierarchical chain",
+  )
+  .option(
+    "--fail-on-issues",
+    "Exit with status 2 when truncation, empty override shadowing, or config errors are found",
+    false,
+  )
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const workingDirectory = options.cwd
+      ? resolve(options.cwd)
+      : scope.workingDirectory;
+    const report = await runCodexDoctor({
+      codexHome: home,
+      projectRoot: scope.projectRoot,
+      workingDirectory,
+    });
+    if (options.json) printJson(report);
+    else process.stdout.write(renderCodexDoctorReport(report));
+    if (
+      options.failOnIssues &&
+      (report.status === "error" ||
+        report.status === "truncated" ||
+        report.findings.some((f) => f.code === "empty-override-shadows-agents"))
+    ) {
+      process.exitCode = 2;
+    }
+  });
+
+program
   .command("agents")
   .description(
     "Audit startup context across Claude Code (CLAUDE.md), OpenAI Codex (AGENTS.md), and Cursor",
@@ -627,11 +679,7 @@ program
   .action(async (options) => {
     const home = codexHome(options.codexHome);
     const scope = await commandProjectScope(home, options.project);
-    const claudeDir = resolve(
-      options.claudeHome ??
-        process.env.CLAUDE_CONFIG_DIR ??
-        join(homedir(), ".claude"),
-    );
+    const claudeDir = claudeHome(options.claudeHome);
     const report = await auditMultiAgentSurface({
       projectRoot: scope.projectRoot,
       codexHome: home,
@@ -719,7 +767,7 @@ program
   .action(async (options) => {
     const home = codexHome(options.codexHome);
     const scope = await commandProjectScope(home, options.project);
-    const claudeDir = resolve(options.claudeHome ?? homedir());
+    const claudeDir = claudeHome(options.claudeHome);
     const declarations = await discoverMcpDeclarations({
       projectRoot: scope.projectRoot,
       codexHome: home,
@@ -741,6 +789,71 @@ program
     const report = buildMcpXrayReport({ declarations, tools });
     if (options.json) printJson(report);
     else process.stdout.write(renderMcpXrayReport(report));
+  });
+
+program
+  .command("mcp-prune")
+  .description(
+    "Inspect or disable high-weight MCP servers in .mcp.json and .codex/config.toml with automatic .bak backups",
+  )
+  .option("--codex-home <path>", "Codex home directory")
+  .option("--claude-home <path>", "Claude home directory")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option(
+    "--disable <servers>",
+    "Comma-separated or repeatable list of MCP server names to disable",
+    collect,
+    [],
+  )
+  .option(
+    "--schema-file <path>",
+    "Saved MCP tools/list JSON payload to analyze offline",
+  )
+  .option(
+    "--probe-stdio",
+    "Query declared local stdio MCP servers with tools/list",
+    false,
+  )
+  .option(
+    "--dry-run",
+    "Preview configuration changes without modifying files",
+    false,
+  )
+  .option("--no-backup", "Skip writing .bak backup files before pruning")
+  .option("--json", "Print structured JSON", false)
+  .action(async (options) => {
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    const claudeDir = claudeHome(options.claudeHome);
+    const declarations = await discoverMcpDeclarations({
+      projectRoot: scope.projectRoot,
+      codexHome: home,
+      claudeHome: claudeDir,
+    });
+    const tools: McpToolSchemaMetric[] = [];
+    if (options.schemaFile) {
+      const payload = JSON.parse(
+        await readFile(resolve(options.schemaFile), "utf8"),
+      ) as unknown;
+      tools.push(...analyzeMcpToolsPayload(payload, "schema-file"));
+    }
+    if (options.probeStdio) {
+      for (const decl of declarations) {
+        const probed = await probeStdioMcpServer(decl);
+        tools.push(...probed);
+      }
+    }
+    const report = await pruneMcpServers({
+      projectRoot: scope.projectRoot,
+      codexHome: home,
+      claudeHome: claudeDir,
+      disableServers: options.disable,
+      tools,
+      dryRun: Boolean(options.dryRun),
+      backup: options.backup !== false,
+    });
+    if (options.json) printJson(report);
+    else process.stdout.write(renderMcpPruneReport(report));
   });
 
 program
@@ -804,6 +917,36 @@ program
       presetName: name,
       projectRoot: scope.projectRoot,
       writeGuidance: Boolean(options.withGuidance),
+    });
+    if (options.json) printJson(applied);
+    else {
+      process.stdout.write(
+        `Applied preset ${applied.preset.name} -> ${applied.budgetPath}\n`,
+      );
+      for (const gPath of applied.guidancePaths) {
+        process.stdout.write(`Wrote ${gPath}\n`);
+      }
+    }
+  });
+
+program
+  .command("init")
+  .description(
+    "Initialize a project with a stack preset budget and starter AGENTS.md / CLAUDE.md guidance",
+  )
+  .argument("[preset]", "Preset name to apply")
+  .option("--preset <name>", "Preset name to apply")
+  .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--no-guidance", "Skip writing starter AGENTS.md and CLAUDE.md files")
+  .option("--json", "Print structured JSON", false)
+  .action(async (presetArg: string | undefined, options) => {
+    const presetName = options.preset ?? presetArg ?? "nextjs-typescript";
+    const home = codexHome();
+    const scope = await commandProjectScope(home, options.project);
+    const applied = await applyPresetToProject({
+      presetName,
+      projectRoot: scope.projectRoot,
+      writeGuidance: options.guidance !== false,
     });
     if (options.json) printJson(applied);
     else {

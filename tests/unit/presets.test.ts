@@ -37,6 +37,21 @@ describe("Community Stack Presets", () => {
     });
   });
 
+  it("resolves sveltekit-typescript as an alias for the sveltekit preset", async () => {
+    await withTempDir("ctxwise-presets-alias-", async (root) => {
+      const applied = await applyPresetToProject({
+        presetName: "sveltekit-typescript",
+        projectRoot: root,
+        writeGuidance: true,
+      });
+
+      expect(applied.preset.name).toBe("sveltekit");
+      expect(applied.guidancePaths).toHaveLength(2);
+      const budgetContent = await readFile(applied.budgetPath, "utf8");
+      expect(budgetContent).toContain("maxKnownTokens: 3000");
+    });
+  });
+
   it("throws a clear error for unknown preset names", async () => {
     await withTempDir("ctxwise-presets-err-", async (root) => {
       await expect(

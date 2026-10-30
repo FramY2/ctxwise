@@ -18,6 +18,7 @@
     "data",
     "assets",
     "plugins",
+    "skills",
     "presets",
     "action.yml",
     "examples/ctxwise.budget.yaml",

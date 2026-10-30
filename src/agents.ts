@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
+
+import { expandHomePath } from "./mcp-xray.js";
 
 export type SupportedAgentId = "claude" | "codex" | "cursor";
 
@@ -206,15 +208,31 @@ export async function auditMultiAgentSurface(options: {
   }
 
   if (options.claudeHome) {
-    const cHome = resolve(options.claudeHome);
-    await addFile(
-      claudeSources,
-      "claude",
-      "guidance",
-      join(cHome, "CLAUDE.md"),
-      "claude-home",
-      cHome,
-    );
+    const cHome = expandHomePath(options.claudeHome);
+    const directClaudeMd = join(cHome, "CLAUDE.md");
+    const nestedClaudeMd = join(cHome, ".claude", "CLAUDE.md");
+    if (await exists(directClaudeMd)) {
+      await addFile(
+        claudeSources,
+        "claude",
+        "guidance",
+        directClaudeMd,
+        "claude-home",
+        cHome,
+      );
+    } else if (
+      basename(cHome) !== ".claude" &&
+      (await exists(nestedClaudeMd))
+    ) {
+      await addFile(
+        claudeSources,
+        "claude",
+        "guidance",
+        nestedClaudeMd,
+        "claude-home",
+        join(cHome, ".claude"),
+      );
+    }
   }
 
   // 2. OpenAI Codex surface
@@ -237,7 +255,7 @@ export async function auditMultiAgentSurface(options: {
     await addFile(codexSources, "codex", "skill", file);
   }
   if (options.codexHome) {
-    const xHome = resolve(options.codexHome);
+    const xHome = expandHomePath(options.codexHome);
     await addFile(
       codexSources,
       "codex",

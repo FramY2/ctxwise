@@ -146,6 +146,7 @@ npx @framy2/ctxwise preset nextjs-typescript --with-guidance
 Built-in presets include:
 
 - `nextjs-typescript` (Next.js + TypeScript + Tailwind)
+- `sveltekit` / `sveltekit-typescript` (SvelteKit 2 + Svelte 5 Runes + TypeScript)
 - `python-fastapi` (Python 3.12 + FastAPI + Pydantic v2)
 - `rust-cargo` (Rust + Cargo Workspace)
 - `go-microservice` (Go 1.23+ Service)
@@ -181,24 +182,26 @@ Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md) or
 
 ## 🧰 Full CLI Reference
 
-| Command            | What it does                                                                                   | Network / Model Call        |
-| :----------------- | :--------------------------------------------------------------------------------------------- | :-------------------------- |
-| `ctxwise agents`   | Audits startup tokens and parity across **Claude Code**, **OpenAI Codex**, and **Cursor**      | None                        |
-| `ctxwise sync`     | Synchronizes `AGENTS.md` ↔ `CLAUDE.md` ↔ `.cursor/rules` with optional `--compress` Token Diet | None                        |
-| `ctxwise mcp-xray` | Profiles MCP server tool-schema token weights and flags bloated tools for tree-shaking         | None (or local stdio probe) |
-| `ctxwise shield`   | Scans agent context files & skills for leaked API keys, prompt injection, and hidden Unicode   | None                        |
-| `ctxwise preset`   | Lists or applies curated stack budgets and `AGENTS.md` / `CLAUDE.md` templates                 | None                        |
-| `ctxwise snapshot` | Ranks known Codex context contributors, coverage gaps, and safe next actions                   | None                        |
-| `ctxwise budget`   | Checks estimated known context against CLI or YAML limits; exits `2` on violation in CI        | None                        |
-| `ctxwise audit`    | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs         | None                        |
-| `ctxwise map`      | Renders a bounded Mermaid map of context sources and discovery overhead                        | None                        |
-| `ctxwise xray`     | Summarizes model-visible prompt JSON without echoing its text                                  | None                        |
-| `ctxwise profile`  | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups              | None                        |
-| `ctxwise lock`     | Hashes a redacted capability surface (`ctxwise.lock.json`) for reproducibility                 | None                        |
-| `ctxwise drift`    | Compares a capability lock with a file or live setup; can fail CI on drift                     | None                        |
-| `ctxwise quota`    | Reads the current plan and quota window through local Codex app-server                         | Codex account read only     |
-| `ctxwise receipt`  | Calculates an honest receipt from saved `codex exec --json` usage                              | None                        |
-| `ctxwise run`      | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray                      | Requested Codex turn        |
+| Command                | What it does                                                                                   | Network / Model Call        |
+| :--------------------- | :--------------------------------------------------------------------------------------------- | :-------------------------- |
+| `ctxwise agents`       | Audits startup tokens and parity across **Claude Code**, **OpenAI Codex**, and **Cursor**      | None                        |
+| `ctxwise sync`         | Synchronizes `AGENTS.md` ↔ `CLAUDE.md` ↔ `.cursor/rules` with optional `--compress` Token Diet | None                        |
+| `ctxwise codex-doctor` | Audits `AGENTS.override.md` / `AGENTS.md` hierarchy against Codex's `32 KiB` truncation limit  | None                        |
+| `ctxwise mcp-xray`     | Profiles MCP server tool-schema token weights and flags bloated tools for tree-shaking         | None (or local stdio probe) |
+| `ctxwise mcp-prune`    | Disables bloated or unused MCP servers in `.mcp.json` / `.codex/config.toml` with `.bak` save  | None (or local stdio probe) |
+| `ctxwise shield`       | Scans agent context files & skills for leaked API keys, prompt injection, and hidden Unicode   | None                        |
+| `ctxwise preset`       | Lists or applies curated stack budgets and `AGENTS.md` / `CLAUDE.md` templates                 | None                        |
+| `ctxwise snapshot`     | Ranks known Codex context contributors, coverage gaps, and safe next actions                   | None                        |
+| `ctxwise budget`       | Checks estimated known context against CLI or YAML limits; exits `2` on violation in CI        | None                        |
+| `ctxwise audit`        | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs         | None                        |
+| `ctxwise map`          | Renders a bounded Mermaid map of context sources and discovery overhead                        | None                        |
+| `ctxwise xray`         | Summarizes model-visible prompt JSON without echoing its text                                  | None                        |
+| `ctxwise profile`      | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups              | None                        |
+| `ctxwise lock`         | Hashes a redacted capability surface (`ctxwise.lock.json`) for reproducibility                 | None                        |
+| `ctxwise drift`        | Compares a capability lock with a file or live setup; can fail CI on drift                     | None                        |
+| `ctxwise quota`        | Reads the current plan and quota window through local Codex app-server                         | Codex account read only     |
+| `ctxwise receipt`      | Calculates an honest receipt from saved `codex exec --json` usage                              | None                        |
+| `ctxwise run`          | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray                      | Requested Codex turn        |
 
 ---
 

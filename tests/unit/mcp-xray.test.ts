@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
@@ -9,6 +9,8 @@ import {
   buildMcpXrayReport,
   discoverMcpDeclarations,
   probeStdioMcpServer,
+  pruneMcpServers,
+  renderMcpPruneReport,
   renderMcpXrayReport,
 } from "../../src/mcp-xray.js";
 import { withTempDir } from "../support/temp.js";
@@ -201,5 +203,124 @@ describe("MCP Schema X-Ray and Tree-Shaker", () => {
       tools: [],
     });
     expect(emptyReport.recommendations.join(" ")).toContain("--probe-stdio");
+  });
+
+  it("resolves .claude.json whether claudeHome points to ~ or ~/.claude", async () => {
+    await withTempDir("ctxwise-mcp-claude-home-", async (root) => {
+      const projectRoot = join(root, "project");
+      const fakeUserHome = join(root, "user-home");
+      const dotClaudeDir = join(fakeUserHome, ".claude");
+      await mkdir(projectRoot, { recursive: true });
+      await mkdir(dotClaudeDir, { recursive: true });
+
+      await writeFile(
+        join(fakeUserHome, ".claude.json"),
+        JSON.stringify({
+          mcpServers: {
+            from_parent_home: { command: "npx", args: ["-y", "parent-mcp"] },
+          },
+        }),
+        "utf8",
+      );
+
+      const fromDotClaude = await discoverMcpDeclarations({
+        projectRoot,
+        claudeHome: dotClaudeDir,
+      });
+      expect(fromDotClaude.map((d) => d.name)).toEqual(["from_parent_home"]);
+
+      const fromUserHome = await discoverMcpDeclarations({
+        projectRoot,
+        claudeHome: fakeUserHome,
+      });
+      expect(fromUserHome.map((d) => d.name)).toEqual(["from_parent_home"]);
+    });
+  });
+
+  it("prunes specified MCP servers in .mcp.json and .codex/config.toml with dry-run and .bak backups", async () => {
+    await withTempDir("ctxwise-mcp-prune-", async (root) => {
+      const projectRoot = join(root, "project");
+      await mkdir(join(projectRoot, ".codex"), { recursive: true });
+
+      const mcpJsonPath = join(projectRoot, ".mcp.json");
+      const codexTomlPath = join(projectRoot, ".codex", "config.toml");
+
+      await writeFile(
+        mcpJsonPath,
+        JSON.stringify(
+          {
+            mcpServers: {
+              heavy_github: { command: "npx", args: ["-y", "github-mcp"] },
+              keep_me: { command: "npx", args: ["-y", "keep-mcp"] },
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      await writeFile(
+        codexTomlPath,
+        [
+          "[mcp_servers.heavy_postgres]",
+          'command = "mcp-postgres"',
+          "[mcp_servers.keep_codex]",
+          'command = "mcp-keep"',
+        ].join("\n"),
+        "utf8",
+      );
+
+      const inspectReport = await pruneMcpServers({ projectRoot });
+      expect(inspectReport.mode).toBe("inspect");
+      expect(inspectReport.candidateServers).toContain("heavy_github");
+      expect(inspectReport.candidateServers).toContain("heavy_postgres");
+
+      const dryRunReport = await pruneMcpServers({
+        projectRoot,
+        disableServers: ["heavy_github,heavy_postgres"],
+        dryRun: true,
+      });
+      expect(dryRunReport.mode).toBe("prune");
+      expect(dryRunReport.dryRun).toBe(true);
+      expect(dryRunReport.disabledServers).toEqual([
+        "heavy_github",
+        "heavy_postgres",
+      ]);
+      expect(
+        JSON.parse(await readFile(mcpJsonPath, "utf8")).mcpServers,
+      ).toHaveProperty("heavy_github");
+
+      const liveReport = await pruneMcpServers({
+        projectRoot,
+        disableServers: ["heavy_github", "heavy_postgres"],
+        dryRun: false,
+      });
+      expect(liveReport.disabledServers).toEqual([
+        "heavy_github",
+        "heavy_postgres",
+      ]);
+      expect(liveReport.modifiedFiles).toHaveLength(2);
+      expect(liveReport.modifiedFiles[0]?.backupPath).toBe(
+        `${mcpJsonPath}.bak`,
+      );
+      expect(liveReport.modifiedFiles[1]?.backupPath).toBe(
+        `${codexTomlPath}.bak`,
+      );
+
+      const updatedMcp = JSON.parse(await readFile(mcpJsonPath, "utf8")) as {
+        mcpServers: Record<string, unknown>;
+      };
+      expect(updatedMcp.mcpServers).not.toHaveProperty("heavy_github");
+      expect(updatedMcp.mcpServers).toHaveProperty("keep_me");
+
+      const updatedToml = await readFile(codexTomlPath, "utf8");
+      expect(updatedToml).toContain(
+        "[mcp_servers.heavy_postgres]\nenabled = false",
+      );
+
+      const rendered = renderMcpPruneReport(liveReport);
+      expect(rendered).toContain("CtxWise mcp-prune · 2 servers disabled");
+    });
   });
 });

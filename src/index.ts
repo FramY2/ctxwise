@@ -6,6 +6,7 @@ export * from "./benchmark.js";
 export * from "./budget.js";
 export * from "./catalog.js";
 export * from "./codex-command.js";
+export * from "./codex-doctor.js";
 export * from "./context-map.js";
 export * from "./drift.js";
 export * from "./events.js";
