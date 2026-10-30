@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildShieldSarif,
   renderShieldReport,
   runContextShield,
   scanContentWithShield,
@@ -173,6 +174,66 @@ describe("Context Shield scanner", () => {
       expect(vulnReport.status).toBe("vulnerable");
       expect(vulnReport.summary.critical).toBe(1);
       expect(renderShieldReport(vulnReport)).toContain("[CRITICAL]");
+    });
+  });
+
+  it("flags misplaced mcpServers in Claude settings.json and builds valid SARIF 2.1.0 output", async () => {
+    await withTempDir("ctxwise-shield-sarif-", async (root) => {
+      const projectDir = join(root, "repo");
+      const claudeHomeDir = join(root, "claude-home");
+      await mkdir(join(projectDir, ".claude"), { recursive: true });
+      await mkdir(claudeHomeDir, { recursive: true });
+
+      await writeFile(
+        join(projectDir, ".claude", "settings.json"),
+        '{\n  "mcpServers": {\n    "github": { "command": "npx" }\n  }\n}\n',
+        "utf8",
+      );
+      await writeFile(
+        join(claudeHomeDir, "settings.json"),
+        '{\n  "mcpServers": {\n    "global_bad": { "command": "node" }\n  }\n}\n',
+        "utf8",
+      );
+
+      const report = await runContextShield({
+        projectRoot: projectDir,
+        claudeHome: claudeHomeDir,
+      });
+
+      expect(report.status).toBe("warning");
+      expect(report.summary.medium).toBe(2);
+      expect(
+        report.findings.every(
+          (f) =>
+            f.id === "claude-settings-misplaced-mcp-servers" &&
+            f.category === "config-hygiene",
+        ),
+      ).toBe(true);
+
+      const sarif = buildShieldSarif(report, "1.1.0");
+      expect(sarif.version).toBe("2.1.0");
+      expect(sarif.$schema).toContain("sarif-2.1.0.json");
+      expect(sarif.runs).toHaveLength(1);
+      expect(sarif.runs[0]?.tool.driver.name).toBe("CtxWise Shield");
+      expect(sarif.runs[0]?.tool.driver.version).toBe("1.1.0");
+      expect(sarif.runs[0]?.results).toHaveLength(2);
+      expect(sarif.runs[0]?.results[0]).toMatchObject({
+        ruleId: "claude-settings-misplaced-mcp-servers",
+        level: "warning",
+        locations: [
+          {
+            physicalLocation: {
+              artifactLocation: {
+                uri: ".claude/settings.json",
+                uriBaseId: "%SRCROOT%",
+              },
+              region: {
+                startLine: 2,
+              },
+            },
+          },
+        ],
+      });
     });
   });
 });

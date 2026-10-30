@@ -16,6 +16,13 @@ describe("loadPriceCatalog", () => {
 
     expect(catalog.effectiveDate).toBe("2026-08-08");
     expect(catalog.models["gpt-5.6-sol"]?.apiUsdPerMillion.output).toBe(30);
+    expect(catalog.models["gpt-6.1-sol"]?.apiUsdPerMillion.output).toBe(30);
+    expect(catalog.models["gpt-6-terra"]?.apiUsdPerMillion.output).toBe(15);
+    expect(catalog.models["gpt-6-luna"]?.apiUsdPerMillion.output).toBe(6);
+    expect(catalog.models["claude-sonnet-4-6"]?.apiUsdPerMillion.output).toBe(
+      15,
+    );
+    expect(catalog.models["claude-opus-4-7"]?.apiUsdPerMillion.output).toBe(75);
   });
 
   it("rejects a malformed override instead of accepting invented prices", async () => {

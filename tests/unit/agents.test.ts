@@ -138,4 +138,93 @@ describe("Multi-Agent Audit, Token Diet Compressor, and Sync", () => {
       ).rejects.toThrow(/AGENTS.md does not exist/);
     });
   });
+
+  it("audits Claude settings.json hygiene, auto-memory files, and companion GEMINI.md / copilot-instructions.md", async () => {
+    await withTempDir("ctxwise-agents-hygiene-", async (root) => {
+      const projectDir = join(root, "my-app");
+      const claudeHomeDir = join(root, "claude-home");
+      await mkdir(join(projectDir, ".claude"), { recursive: true });
+      await mkdir(join(projectDir, ".github"), { recursive: true });
+      await mkdir(
+        join(claudeHomeDir, "projects", "-workspace-my-app", "memory"),
+        { recursive: true },
+      );
+
+      await writeFile(
+        join(projectDir, ".claude", "settings.json"),
+        JSON.stringify({
+          mcpServers: { misplaced: { command: "npx", args: ["bad"] } },
+          disableClaudeAiConnectors: true,
+          deniedMcpServers: ["github", { serverName: "slack" }],
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(claudeHomeDir, "settings.json"),
+        JSON.stringify({
+          mcpServers: { home_misplaced: { command: "node" } },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(
+          claudeHomeDir,
+          "projects",
+          "-workspace-my-app",
+          "memory",
+          "MEMORY.md",
+        ),
+        "# Learned Project Memory\n- Use strict TypeScript.\n",
+        "utf8",
+      );
+      await writeFile(
+        join(projectDir, "GEMINI.md"),
+        "# Gemini Guidance\n- Prefer pure functions.\n",
+        "utf8",
+      );
+      await writeFile(
+        join(projectDir, ".github", "copilot-instructions.md"),
+        "# Copilot Instructions\n- Keep PRs small.\n",
+        "utf8",
+      );
+
+      const report = await auditMultiAgentSurface({
+        projectRoot: projectDir,
+        claudeHome: claudeHomeDir,
+      });
+
+      expect(report.claudeHygiene.disableClaudeAiConnectors).toBe(true);
+      expect(report.claudeHygiene.deniedMcpServers).toEqual([
+        "github",
+        "slack",
+      ]);
+      expect(report.claudeHygiene.misplacedMcpServersPaths).toEqual([
+        "project/.claude/settings.json",
+        "claude-home/settings.json",
+      ]);
+      expect(report.claudeHygiene.autoMemoryFiles).toEqual([
+        "claude-home/projects/-workspace-my-app/memory/MEMORY.md",
+      ]);
+      expect(
+        report.agents.claude.sources.some(
+          (s) => s.kind === "memory" && s.path.endsWith("MEMORY.md"),
+        ),
+      ).toBe(true);
+      expect(report.companionSources.map((s) => s.path)).toEqual([
+        "project/GEMINI.md",
+        "project/.github/copilot-instructions.md",
+      ]);
+      expect(
+        report.recommendations.some((r) => r.includes('"mcpServers" found in')),
+      ).toBe(true);
+
+      const rendered = renderMultiAgentReport(report);
+      expect(rendered).toContain(
+        "Claude hygiene · disableClaudeAiConnectors: true",
+      );
+      expect(rendered).toContain("COMPANION active context files:");
+      expect(rendered).toContain("project/GEMINI.md");
+      expect(rendered).toContain("project/.github/copilot-instructions.md");
+    });
+  });
 });

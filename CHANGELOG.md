@@ -5,6 +5,21 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-31
+
+### Added
+
+- **Claude Code Settings & Connector Hygiene Audit (`ctxwise agents` & `ctxwise shield`)**:
+  - Inspects `.claude/settings.json`, `.claude/settings.local.json`, and `~/.claude/settings.json` for misplaced `"mcpServers"` blocks (which Claude Code's `update-config` validator rejects in a `+141k`-token retry loop per `anthropics/claude-code#105885`; MCP servers belong in `.mcp.json` or `~/.claude.json`).
+  - Surfaces `"disableClaudeAiConnectors": true` and `deniedMcpServers` configuration status (per `anthropics/claude-code#106225`).
+  - Discovers and inventories Claude Code project auto-memory files (`~/.claude/projects/<project-slug>/memory/*.md`) alongside `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and `.github/copilot-instructions.md`.
+- **5-Hour (`primary`) + Weekly (`secondary`) Quota Windows (`ctxwise quota`)**:
+  - Extracts both `limits.primary` and `limits.secondary` in `quotaFromResult` / `AccountSnapshot` so `ctxwise quota` displays both the 5-hour and weekly rate-limit windows cleanly while retaining backwards compatibility.
+- **Updated Model Pricing Catalog (`data/pricing-2026-08-08.json` & `src/receipt.ts`)**:
+  - Adds `gpt-6.1-sol`, `gpt-6-terra`, `gpt-6-luna`, `claude-sonnet-4-6`, and `claude-opus-4-7` (plus aliases and dated snapshot suffix normalization) so `ctxwise receipt` and `ctxwise run --receipt` price current models accurately.
+- **SARIF 2.1.0 Output for `ctxwise shield` (`--sarif <file>`)**:
+  - Emits valid SARIF 2.1.0 JSON for secret, prompt-injection, Trojan Unicode, and config-hygiene findings so `uses: FramY2/ctxwise@v1` integrates directly with GitHub Code Scanning.
+
 ## [1.0.3] - 2026-10-30
 
 ### Added

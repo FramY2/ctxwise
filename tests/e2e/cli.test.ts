@@ -417,5 +417,22 @@ describe("CtxWise CLI", () => {
       mode: "prune",
       disabledServers: ["demo_server"],
     });
+
+    const sarifOutPath = join(root, "ctxwise.sarif");
+    await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "shield",
+      "--project",
+      projectRoot,
+      "--sarif",
+      sarifOutPath,
+    ]);
+    const sarifJson = JSON.parse(await readFile(sarifOutPath, "utf8")) as {
+      version: string;
+      runs: Array<{ tool: { driver: { name: string } } }>;
+    };
+    expect(sarifJson.version).toBe("2.1.0");
+    expect(sarifJson.runs[0]?.tool.driver.name).toBe("CtxWise Shield");
   });
 });

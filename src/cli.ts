@@ -15,7 +15,11 @@ import {
   syncAgentGuidance,
   type SupportedAgentId,
 } from "./agents.js";
-import { queryAccountSnapshot, type AccountSnapshot } from "./app-server.js";
+import {
+  queryAccountSnapshot,
+  renderAccountSnapshot,
+  type AccountSnapshot,
+} from "./app-server.js";
 import { buildAuditSnapshot, renderAuditSnapshot } from "./audit-summary.js";
 import { auditCodexSurface, resolveAuditPath } from "./audit.js";
 import {
@@ -50,7 +54,11 @@ import { compileProfilesFromFile, installProfile } from "./profile.js";
 import { resolveProjectScope } from "./guidance.js";
 import { calculateReceipt, renderReceipt, type AuthMode } from "./receipt.js";
 import { inspectPromptInput, runCodex } from "./runner.js";
-import { renderShieldReport, runContextShield } from "./shield.js";
+import {
+  buildShieldSarif,
+  renderShieldReport,
+  runContextShield,
+} from "./shield.js";
 import { CTXWISE_VERSION } from "./version.js";
 import { analyzePromptInput } from "./xray.js";
 
@@ -582,10 +590,7 @@ program
       commandPrefixArgs: invocation.prefixArgs,
     });
     if (options.json) printJson(snapshot);
-    else
-      process.stdout.write(
-        `Plan ${snapshot.planType ?? "unknown"} · quota ${snapshot.quota ? `${snapshot.quota.usedPercent}% used` : "unknown"}\n`,
-      );
+    else process.stdout.write(`${renderAccountSnapshot(snapshot)}\n`);
   });
 
 program
@@ -866,6 +871,11 @@ program
     "Scan agent context files (CLAUDE.md, AGENTS.md, skills, MCP configs) for leaked secrets and prompt injection",
   )
   .option("--project <path>", "Explicit project root; auto-detected by default")
+  .option("--claude-home <path>", "Claude home directory")
+  .option(
+    "--sarif <file>",
+    "Write SARIF 2.1.0 report to a file for GitHub Code Scanning",
+  )
   .option("--json", "Print structured JSON", false)
   .option(
     "--fail-on-risk",
@@ -875,7 +885,21 @@ program
   .action(async (options) => {
     const home = codexHome();
     const scope = await commandProjectScope(home, options.project);
-    const report = await runContextShield({ projectRoot: scope.projectRoot });
+    const report = await runContextShield({
+      projectRoot: scope.projectRoot,
+      ...(options.claudeHome
+        ? { claudeHome: claudeHome(options.claudeHome) }
+        : {}),
+    });
+    if (options.sarif) {
+      const sarifPath = resolve(options.sarif);
+      await mkdir(dirname(sarifPath), { recursive: true });
+      await writeFile(
+        sarifPath,
+        `${JSON.stringify(buildShieldSarif(report), null, 2)}\n`,
+        "utf8",
+      );
+    }
     if (options.json) printJson(report);
     else process.stdout.write(renderShieldReport(report));
     if (

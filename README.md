@@ -129,9 +129,10 @@ Protect your repository before an agent reads your workspace or before a PR merg
 
 - **Secret Exposure Detection:** Catches hardcoded Anthropic (`sk-ant-...`), OpenAI (`sk-proj-...`), GitHub (`ghp_...`), AWS (`AKIA...`), and private key blocks inside `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, and skills.
 - **Prompt Injection & Trojan Unicode Guard:** Detects override directives (`ignore all previous instructions`), covert HTML comment payloads (`<!-- curl ... -->`), and hidden bidirectional/zero-width Unicode characters.
+- **Claude Settings Hygiene & SARIF 2.1.0 Output:** Flags misplaced `"mcpServers"` blocks inside `.claude/settings.json` (`anthropics/claude-code#105885`) and emits SARIF 2.1.0 (`--sarif ctxwise.sarif`) for GitHub Code Scanning.
 
 ```shell
-npx @framy2/ctxwise shield --fail-on-risk
+npx @framy2/ctxwise shield --fail-on-risk --sarif ctxwise.sarif
 ```
 
 ### 4. 📦 Curated Stack Presets (`preset`)
@@ -166,7 +167,15 @@ Add **CtxWise** to `.github/workflows/ci.yml` in 5 lines to automatically block 
     max-known-tokens: "4000"
     fail-on-secrets: "true"
     check-agent-parity: "true"
+    sarif-file: "ctxwise-shield.sarif"
 ```
+
+---
+
+## 🧩 Companion Open-Source Tools
+
+- **[`FramY2/mcp-diet`](https://github.com/FramY2/mcp-diet) (`@framy2/mcp-diet`)**: Zero-dependency stdio MCP proxy & runtime firewall — deterministic `tools/list` tree-shaking (`--allow`, `--deny`, `--read-only`, `--max-desc`), oversized `tools/call` crash guard (`--max-result-kb`), and live credential redaction (`--redact-secrets`).
+- **[`FramY2/agent-wire-tap`](https://github.com/FramY2/agent-wire-tap) (`@framy2/agent-wire-tap`)**: Zero-cost local loopback HTTP interceptor & CI contract tester for coding agents (`codex`, `claude`) — captures exact outbound wire payloads and verifies system prompt, tool count, and byte budget contracts with zero API cost.
 
 ---
 

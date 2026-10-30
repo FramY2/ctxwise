@@ -1,13 +1,18 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
-import type { AuthMode, QuotaSnapshot } from "./receipt.js";
+import type {
+  AuthMode,
+  QuotaSnapshot,
+  QuotaWindowSnapshot,
+} from "./receipt.js";
 import { CTXWISE_VERSION } from "./version.js";
 
 export interface AccountSnapshot {
   authMode: AuthMode;
   planType: string | null;
   quota: QuotaSnapshot | null;
+  secondaryQuota?: QuotaWindowSnapshot | null;
 }
 
 export interface AccountQueryOptions {
@@ -23,19 +28,15 @@ function normalizeAuthMode(account: Record<string, unknown> | null): AuthMode {
   return "unknown";
 }
 
-function quotaFromResult(value: unknown): QuotaSnapshot | null {
-  if (!value || typeof value !== "object") return null;
-  const result = value as Record<string, unknown>;
-  const limits = result.rateLimits;
-  if (!limits || typeof limits !== "object") return null;
-  const primary = (limits as Record<string, unknown>).primary;
-  if (!primary || typeof primary !== "object") return null;
-  const window = primary as Record<string, unknown>;
+function parseQuotaWindow(raw: unknown): QuotaWindowSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const window = raw as Record<string, unknown>;
   if (
     typeof window.usedPercent !== "number" ||
     !Number.isFinite(window.usedPercent)
-  )
+  ) {
     return null;
+  }
   return {
     usedPercent: window.usedPercent,
     windowDurationMins:
@@ -45,6 +46,34 @@ function quotaFromResult(value: unknown): QuotaSnapshot | null {
     resetsAt: typeof window.resetsAt === "number" ? window.resetsAt : null,
     provenance: "exact",
   };
+}
+
+export function quotaFromResult(value: unknown): QuotaSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const result = value as Record<string, unknown>;
+  const limits = result.rateLimits;
+  if (!limits || typeof limits !== "object") return null;
+  const limitsRecord = limits as Record<string, unknown>;
+  const primary = parseQuotaWindow(limitsRecord.primary);
+  const secondary = parseQuotaWindow(limitsRecord.secondary);
+  if (!primary) return null;
+  return {
+    ...primary,
+    primary,
+    secondary,
+  };
+}
+
+export function renderAccountSnapshot(snapshot: AccountSnapshot): string {
+  if (!snapshot.quota) {
+    return `Plan ${snapshot.planType ?? "unknown"} · quota unknown`;
+  }
+  const primaryPart = `5h ${snapshot.quota.usedPercent}% used`;
+  const secondary = snapshot.quota.secondary ?? snapshot.secondaryQuota ?? null;
+  const secondaryPart = secondary
+    ? ` · weekly ${secondary.usedPercent}% used`
+    : "";
+  return `Plan ${snapshot.planType ?? "unknown"} · quota ${snapshot.quota.usedPercent}% used (${primaryPart}${secondaryPart})`;
 }
 
 export async function queryAccountSnapshot(
@@ -84,13 +113,15 @@ export async function queryAccountSnapshot(
         accountResult?.account && typeof accountResult.account === "object"
           ? (accountResult.account as Record<string, unknown>)
           : null;
+      const quota = quotaFromResult(rateResult);
       resolve({
         authMode: normalizeAuthMode(account),
         planType:
           account && typeof account.planType === "string"
             ? account.planType
             : null,
-        quota: quotaFromResult(rateResult),
+        quota,
+        secondaryQuota: quota?.secondary ?? null,
       });
     };
 

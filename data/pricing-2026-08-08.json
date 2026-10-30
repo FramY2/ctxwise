@@ -62,6 +62,101 @@
         "inputMultiplier": 2,
         "outputMultiplier": 1.5
       }
+    },
+    "gpt-6.1-sol": {
+      "aliases": ["gpt-6.1", "gpt-6-sol"],
+      "contextWindow": 1050000,
+      "apiUsdPerMillion": {
+        "input": 5,
+        "cachedInput": 0.5,
+        "output": 30
+      },
+      "creditsPerMillion": {
+        "input": 125,
+        "cachedInput": 12.5,
+        "output": 750
+      },
+      "longContext": {
+        "thresholdInputTokens": 272000,
+        "inputMultiplier": 2,
+        "outputMultiplier": 1.5
+      }
+    },
+    "gpt-6-terra": {
+      "aliases": ["gpt-6"],
+      "contextWindow": 1050000,
+      "apiUsdPerMillion": {
+        "input": 2.5,
+        "cachedInput": 0.25,
+        "output": 15
+      },
+      "creditsPerMillion": {
+        "input": 50,
+        "cachedInput": 5,
+        "output": 300
+      },
+      "longContext": {
+        "thresholdInputTokens": 272000,
+        "inputMultiplier": 2,
+        "outputMultiplier": 1.5
+      }
+    },
+    "gpt-6-luna": {
+      "aliases": ["gpt-6-mini"],
+      "contextWindow": 1050000,
+      "apiUsdPerMillion": {
+        "input": 1,
+        "cachedInput": 0.1,
+        "output": 6
+      },
+      "creditsPerMillion": {
+        "input": 5,
+        "cachedInput": 0.5,
+        "output": 30
+      },
+      "longContext": {
+        "thresholdInputTokens": 272000,
+        "inputMultiplier": 2,
+        "outputMultiplier": 1.5
+      }
+    },
+    "claude-sonnet-4-6": {
+      "aliases": ["claude-4-6-sonnet", "claude-sonnet-4.6", "sonnet"],
+      "contextWindow": 1000000,
+      "apiUsdPerMillion": {
+        "input": 3,
+        "cachedInput": 0.3,
+        "output": 15
+      },
+      "creditsPerMillion": {
+        "input": 60,
+        "cachedInput": 6,
+        "output": 300
+      },
+      "longContext": {
+        "thresholdInputTokens": 200000,
+        "inputMultiplier": 2,
+        "outputMultiplier": 1.5
+      }
+    },
+    "claude-opus-4-7": {
+      "aliases": ["claude-4-7-opus", "claude-opus-4.7", "opus"],
+      "contextWindow": 1000000,
+      "apiUsdPerMillion": {
+        "input": 15,
+        "cachedInput": 1.5,
+        "output": 75
+      },
+      "creditsPerMillion": {
+        "input": 300,
+        "cachedInput": 30,
+        "output": 1500
+      },
+      "longContext": {
+        "thresholdInputTokens": 200000,
+        "inputMultiplier": 2,
+        "outputMultiplier": 1.5
+      }
     }
   }
 }

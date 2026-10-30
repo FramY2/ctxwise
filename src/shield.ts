@@ -1,5 +1,8 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
+
+import { expandHomePath } from "./mcp-xray.js";
+import { CTXWISE_VERSION } from "./version.js";
 
 export type ShieldRiskSeverity = "low" | "medium" | "high" | "critical";
 
@@ -7,7 +10,8 @@ export type ShieldCategory =
   | "secret-exposure"
   | "prompt-injection"
   | "hidden-unicode"
-  | "unpinned-mcp-exec";
+  | "unpinned-mcp-exec"
+  | "config-hygiene";
 
 export interface ShieldFinding {
   id: string;
@@ -30,6 +34,56 @@ export interface ShieldReport {
     low: number;
     total: number;
   };
+}
+
+export interface SarifRuleDescriptor {
+  id: string;
+  shortDescription: { text: string };
+  defaultConfiguration: {
+    level: "error" | "warning" | "note";
+  };
+  properties: {
+    category: ShieldCategory;
+    severity: ShieldRiskSeverity;
+  };
+}
+
+export interface SarifResult {
+  ruleId: string;
+  level: "error" | "warning" | "note";
+  message: { text: string };
+  locations: Array<{
+    physicalLocation: {
+      artifactLocation: {
+        uri: string;
+        uriBaseId: string;
+      };
+      region: {
+        startLine: number;
+        snippet: { text: string };
+      };
+    };
+  }>;
+  properties: {
+    category: ShieldCategory;
+    severity: ShieldRiskSeverity;
+  };
+}
+
+export interface SarifLog {
+  $schema: string;
+  version: "2.1.0";
+  runs: Array<{
+    tool: {
+      driver: {
+        name: string;
+        informationUri: string;
+        version: string;
+        rules: SarifRuleDescriptor[];
+      };
+    };
+    results: SarifResult[];
+  }>;
 }
 
 interface SecretRule {
@@ -228,6 +282,40 @@ export function scanContentWithShield(
     });
   }
 
+  // Check Claude Code settings.json for misplaced "mcpServers" block (anthropics/claude-code#105885)
+  const normalizedDisplayPath = displayPath.replaceAll("\\", "/");
+  if (
+    /(?:^|\/)(?:\.claude\/|claude-home\/(?:\.claude\/)?)?settings(?:\.local)?\.json$/i.test(
+      normalizedDisplayPath,
+    )
+  ) {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        parsed.mcpServers &&
+        typeof parsed.mcpServers === "object" &&
+        !Array.isArray(parsed.mcpServers)
+      ) {
+        const lineIdx = lines.findIndex((l) => /"mcpServers"\s*:/.test(l));
+        const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
+        findings.push({
+          id: "claude-settings-misplaced-mcp-servers",
+          category: "config-hygiene",
+          severity: "medium",
+          path: displayPath,
+          line: lineNumber,
+          message:
+            '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation (causing +141k-token update-config retry loops); move MCP servers to .mcp.json or ~/.claude.json.',
+          snippet: maskSnippet(lines[lineNumber - 1] ?? '"mcpServers": {}'),
+        });
+      }
+    } catch {
+      // Ignore malformed JSON here
+    }
+  }
+
   return findings;
 }
 
@@ -282,16 +370,36 @@ async function walkContextFiles(root: string, depth = 5): Promise<string[]> {
 
 export async function runContextShield(options: {
   projectRoot: string;
+  claudeHome?: string;
 }): Promise<ShieldReport> {
   const root = resolve(options.projectRoot);
   const candidateFiles = (await walkContextFiles(root, 5)).sort();
   const findings: ShieldFinding[] = [];
+  let scannedCount = candidateFiles.length;
 
   for (const filePath of candidateFiles) {
     const content = await readFile(filePath, "utf8").catch(() => "");
     if (!content) continue;
     const relPath = relative(root, filePath).replaceAll("\\", "/");
     findings.push(...scanContentWithShield(content, relPath));
+  }
+
+  if (options.claudeHome) {
+    const cHome = expandHomePath(options.claudeHome);
+    const homeSettingsCandidates = [join(cHome, "settings.json")];
+    if (basename(cHome) !== ".claude") {
+      homeSettingsCandidates.push(join(cHome, ".claude", "settings.json"));
+    }
+    for (const settingsPath of homeSettingsCandidates) {
+      if (candidateFiles.includes(settingsPath)) continue;
+      if (!(await exists(settingsPath))) continue;
+      const content = await readFile(settingsPath, "utf8").catch(() => "");
+      if (!content) continue;
+      scannedCount += 1;
+      const rel = relative(cHome, settingsPath).replaceAll("\\", "/");
+      findings.push(...scanContentWithShield(content, `claude-home/${rel}`));
+      break;
+    }
   }
 
   const summary = {
@@ -311,9 +419,110 @@ export async function runContextShield(options: {
 
   return {
     status,
-    scannedFiles: candidateFiles.length,
+    scannedFiles: scannedCount,
     findings,
     summary,
+  };
+}
+
+function severityToSarifLevel(
+  severity: ShieldRiskSeverity,
+): "error" | "warning" | "note" {
+  if (severity === "critical" || severity === "high") return "error";
+  if (severity === "medium") return "warning";
+  return "note";
+}
+
+export function buildShieldSarif(
+  report: ShieldReport,
+  version = CTXWISE_VERSION,
+): SarifLog {
+  const catalogRules: Array<{
+    id: string;
+    category: ShieldCategory;
+    severity: ShieldRiskSeverity;
+    message: string;
+  }> = [
+    ...SECRET_RULES.map((r) => ({
+      id: r.id,
+      category: "secret-exposure" as const,
+      severity: r.severity,
+      message: r.message,
+    })),
+    ...INJECTION_RULES.map((r) => ({
+      id: r.id,
+      category: "prompt-injection" as const,
+      severity: r.severity,
+      message: r.message,
+    })),
+    {
+      id: "hidden-bidi-or-zero-width",
+      category: "hidden-unicode",
+      severity: "high",
+      message:
+        "Hidden zero-width or bidirectional Unicode character detected (possible Trojan Source / covert prompt injection).",
+    },
+    {
+      id: "claude-settings-misplaced-mcp-servers",
+      category: "config-hygiene",
+      severity: "medium",
+      message:
+        '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation; move MCP servers to .mcp.json or ~/.claude.json.',
+    },
+  ];
+
+  const rules: SarifRuleDescriptor[] = catalogRules.map((rule) => ({
+    id: rule.id,
+    shortDescription: { text: rule.message },
+    defaultConfiguration: {
+      level: severityToSarifLevel(rule.severity),
+    },
+    properties: {
+      category: rule.category,
+      severity: rule.severity,
+    },
+  }));
+
+  const results: SarifResult[] = report.findings.map((finding) => ({
+    ruleId: finding.id,
+    level: severityToSarifLevel(finding.severity),
+    message: { text: finding.message },
+    locations: [
+      {
+        physicalLocation: {
+          artifactLocation: {
+            uri: finding.path.replaceAll("\\", "/"),
+            uriBaseId: "%SRCROOT%",
+          },
+          region: {
+            startLine: Math.max(1, finding.line),
+            snippet: { text: finding.snippet },
+          },
+        },
+      },
+    ],
+    properties: {
+      category: finding.category,
+      severity: finding.severity,
+    },
+  }));
+
+  return {
+    $schema: "https://json.schemastore.org/sarif-2.1.0.json",
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "CtxWise Shield",
+            informationUri: "https://github.com/FramY2/ctxwise",
+            version,
+            rules,
+          },
+        },
+        results,
+      },
+    ],
   };
 }
 

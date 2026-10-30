@@ -34,11 +34,16 @@ export interface PriceCatalog {
   models: Record<string, ModelPrice>;
 }
 
-export interface QuotaSnapshot {
+export interface QuotaWindowSnapshot {
   usedPercent: number;
   windowDurationMins: number | null;
   resetsAt: number | null;
   provenance: Provenance;
+}
+
+export interface QuotaSnapshot extends QuotaWindowSnapshot {
+  primary?: QuotaWindowSnapshot | null;
+  secondary?: QuotaWindowSnapshot | null;
 }
 
 export interface Receipt {
@@ -81,13 +86,19 @@ function resolvePrice(
   catalog: PriceCatalog,
   requestedModel: string,
 ): ModelPrice | null {
-  const exact = catalog.models[requestedModel];
-  if (exact) return exact;
-  return (
-    Object.values(catalog.models).find((entry) =>
-      entry.aliases.includes(requestedModel),
-    ) ?? null
-  );
+  const candidates = [
+    requestedModel,
+    requestedModel.replace(/-\d{4}-?\d{2}-?\d{2}$/, ""),
+  ];
+  for (const candidate of candidates) {
+    const exact = catalog.models[candidate];
+    if (exact) return exact;
+    const byAlias = Object.values(catalog.models).find((entry) =>
+      entry.aliases.includes(candidate),
+    );
+    if (byAlias) return byAlias;
+  }
+  return null;
 }
 
 function calculateRatedValue(

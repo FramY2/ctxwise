@@ -8,7 +8,14 @@ export type SupportedAgentId = "claude" | "codex" | "cursor";
 
 export interface AgentSurfaceFile {
   agent: SupportedAgentId;
-  kind: "guidance" | "skill" | "command" | "rule" | "mcp-config";
+  kind:
+    | "guidance"
+    | "skill"
+    | "command"
+    | "rule"
+    | "mcp-config"
+    | "memory"
+    | "settings";
   path: string;
   characters: number;
   estimatedTokens: number;
@@ -21,11 +28,21 @@ export interface AgentSurfaceSummary {
   sources: AgentSurfaceFile[];
 }
 
+export interface ClaudeSettingsHygiene {
+  settingsFiles: string[];
+  misplacedMcpServersPaths: string[];
+  disableClaudeAiConnectors: boolean;
+  deniedMcpServers: string[];
+  autoMemoryFiles: string[];
+}
+
 export interface MultiAgentReport {
   provenance: "estimated";
   agents: Record<SupportedAgentId, AgentSurfaceSummary>;
   parityStatus: "synced" | "diverged" | "single-agent" | "missing";
   compressionPotentialTokens: number;
+  claudeHygiene: ClaudeSettingsHygiene;
+  companionSources: AgentSurfaceFile[];
   recommendations: string[];
 }
 
@@ -146,6 +163,28 @@ function normalizeForParity(content: string): string {
     .trim();
 }
 
+function extractDeniedMcpServerNames(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    const names: string[] = [];
+    for (const item of value) {
+      if (typeof item === "string" && item.trim()) {
+        names.push(item.trim());
+      } else if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        const name = record.serverName ?? record.name ?? record.server;
+        if (typeof name === "string" && name.trim()) {
+          names.push(name.trim());
+        }
+      }
+    }
+    return names;
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>);
+  }
+  return [];
+}
+
 export async function auditMultiAgentSurface(options: {
   projectRoot: string;
   claudeHome?: string;
@@ -155,6 +194,15 @@ export async function auditMultiAgentSurface(options: {
   const claudeSources: AgentSurfaceFile[] = [];
   const codexSources: AgentSurfaceFile[] = [];
   const cursorSources: AgentSurfaceFile[] = [];
+  const companionSources: AgentSurfaceFile[] = [];
+
+  const claudeHygiene: ClaudeSettingsHygiene = {
+    settingsFiles: [],
+    misplacedMcpServersPaths: [],
+    disableClaudeAiConnectors: false,
+    deniedMcpServers: [],
+    autoMemoryFiles: [],
+  };
 
   let potentialSavings = 0;
 
@@ -171,7 +219,7 @@ export async function auditMultiAgentSurface(options: {
     if (!raw.trim()) return;
     const rel = relative(baseDir, fullPath).replaceAll("\\", "/");
     const estimatedTokens = Math.ceil(raw.length / 4);
-    if (kind === "guidance" || kind === "rule") {
+    if (kind === "guidance" || kind === "rule" || kind === "memory") {
       potentialSavings += compressMarkdownGuidance(raw).savedTokens;
     }
     bucket.push({
@@ -183,11 +231,52 @@ export async function auditMultiAgentSurface(options: {
     });
   };
 
+  const inspectClaudeSettingsFile = async (
+    fullPath: string,
+    displayPath: string,
+  ) => {
+    if (!(await exists(fullPath))) return;
+    const raw = await readFile(fullPath, "utf8").catch(() => "");
+    if (!raw.trim()) return;
+    claudeHygiene.settingsFiles.push(displayPath);
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (
+        parsed.mcpServers &&
+        typeof parsed.mcpServers === "object" &&
+        !Array.isArray(parsed.mcpServers)
+      ) {
+        claudeHygiene.misplacedMcpServersPaths.push(displayPath);
+      }
+      if (parsed.disableClaudeAiConnectors === true) {
+        claudeHygiene.disableClaudeAiConnectors = true;
+      }
+      for (const denied of extractDeniedMcpServerNames(
+        parsed.deniedMcpServers,
+      )) {
+        if (!claudeHygiene.deniedMcpServers.includes(denied)) {
+          claudeHygiene.deniedMcpServers.push(denied);
+        }
+      }
+    } catch {
+      // Malformed JSON handled by shield/audit
+    }
+  };
+
   // 1. Claude Code surface
   for (const name of ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md"]) {
     await addFile(claudeSources, "claude", "guidance", join(root, name));
   }
   await addFile(claudeSources, "claude", "mcp-config", join(root, ".mcp.json"));
+
+  await inspectClaudeSettingsFile(
+    join(root, ".claude", "settings.json"),
+    "project/.claude/settings.json",
+  );
+  await inspectClaudeSettingsFile(
+    join(root, ".claude", "settings.local.json"),
+    "project/.claude/settings.local.json",
+  );
 
   const claudeCommands = await walkFiles(
     join(root, ".claude", "commands"),
@@ -233,6 +322,73 @@ export async function auditMultiAgentSurface(options: {
         join(cHome, ".claude"),
       );
     }
+
+    // Inspect user-level Claude settings.json
+    const directSettings = join(cHome, "settings.json");
+    const nestedSettings = join(cHome, ".claude", "settings.json");
+    if (await exists(directSettings)) {
+      await inspectClaudeSettingsFile(
+        directSettings,
+        "claude-home/settings.json",
+      );
+    } else if (
+      basename(cHome) !== ".claude" &&
+      (await exists(nestedSettings))
+    ) {
+      await inspectClaudeSettingsFile(
+        nestedSettings,
+        "claude-home/.claude/settings.json",
+      );
+    }
+
+    // Discover Claude Code project auto-memory files (~/.claude/projects/<project-slug>/memory/*.md)
+    const projectsRootCandidates = [join(cHome, "projects")];
+    if (basename(cHome) !== ".claude") {
+      projectsRootCandidates.push(join(cHome, ".claude", "projects"));
+    }
+    const baseNameSlug = basename(root);
+    const slugCandidates = new Set([
+      baseNameSlug,
+      root.replace(/[:\\/]/g, "-"),
+      root.replace(/[:\\/]+/g, "-"),
+      root.replace(/[:\\/]+/g, "-").replace(/^-+/, ""),
+    ]);
+
+    const seenMemoryPaths = new Set<string>();
+    for (const projectsRoot of projectsRootCandidates) {
+      if (!(await exists(projectsRoot))) continue;
+      const entries = await readdir(projectsRoot, {
+        withFileTypes: true,
+      }).catch(() => []);
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const matchesProject =
+          slugCandidates.has(entry.name) ||
+          entry.name.endsWith(`-${baseNameSlug}`);
+        if (!matchesProject) continue;
+        const memoryDir = join(projectsRoot, entry.name, "memory");
+        const memoryFiles = await walkFiles(
+          memoryDir,
+          (_p, name) => name.endsWith(".md"),
+          2,
+        );
+        const homeBase = dirname(projectsRoot);
+        for (const memFile of memoryFiles) {
+          if (seenMemoryPaths.has(memFile)) continue;
+          seenMemoryPaths.add(memFile);
+          await addFile(
+            claudeSources,
+            "claude",
+            "memory",
+            memFile,
+            "claude-home",
+            homeBase,
+          );
+          const relMem = `claude-home/${relative(homeBase, memFile).replaceAll("\\", "/")}`;
+          claudeHygiene.autoMemoryFiles.push(relMem);
+        }
+      }
+    }
   }
 
   // 2. OpenAI Codex surface
@@ -277,6 +433,15 @@ export async function auditMultiAgentSurface(options: {
     await addFile(cursorSources, "cursor", "rule", file);
   }
 
+  // 4. Companion agent instruction surfaces (GEMINI.md, .github/copilot-instructions.md)
+  await addFile(companionSources, "codex", "guidance", join(root, "GEMINI.md"));
+  await addFile(
+    companionSources,
+    "codex",
+    "guidance",
+    join(root, ".github", "copilot-instructions.md"),
+  );
+
   // Check parity between project CLAUDE.md and AGENTS.md
   const claudeMdPath = join(root, "CLAUDE.md");
   const agentsMdPath = join(root, "AGENTS.md");
@@ -297,6 +462,20 @@ export async function auditMultiAgentSurface(options: {
   }
 
   const recommendations: string[] = [];
+  for (const misplacedPath of claudeHygiene.misplacedMcpServersPaths) {
+    recommendations.push(
+      `"mcpServers" found in ${misplacedPath}. Claude Code's update-config validator rejects "mcpServers" inside settings.json (causing +141k-token retry loops); move MCP server definitions to .mcp.json or ~/.claude.json.`,
+    );
+  }
+  if (
+    claudeHygiene.settingsFiles.length > 0 &&
+    !claudeHygiene.disableClaudeAiConnectors &&
+    claudeHygiene.deniedMcpServers.length === 0
+  ) {
+    recommendations.push(
+      `Consider setting "disableClaudeAiConnectors": true or configuring "deniedMcpServers" in .claude/settings.json to prevent unrequested cloud connectors from injecting tool schemas.`,
+    );
+  }
   if (parityStatus === "diverged") {
     recommendations.push(
       "CLAUDE.md and AGENTS.md have diverged. Run `ctxwise sync` to align instructions across Claude Code and OpenAI Codex.",
@@ -336,6 +515,8 @@ export async function auditMultiAgentSurface(options: {
     },
     parityStatus,
     compressionPotentialTokens: potentialSavings,
+    claudeHygiene,
+    companionSources,
     recommendations,
   };
 }
@@ -437,10 +618,30 @@ export function renderMultiAgentReport(report: MultiAgentReport): string {
     `CtxWise multi-agent · parity: ${report.parityStatus} · Claude ~${claude.estimatedStartupTokens.toLocaleString("en-US")} tokens (${claude.files} files) · Codex ~${codex.estimatedStartupTokens.toLocaleString("en-US")} tokens (${codex.files} files) · Cursor ~${cursor.estimatedStartupTokens.toLocaleString("en-US")} tokens (${cursor.files} files)`,
   ];
 
+  if (
+    report.claudeHygiene &&
+    (report.claudeHygiene.settingsFiles.length > 0 ||
+      report.claudeHygiene.autoMemoryFiles.length > 0 ||
+      report.claudeHygiene.misplacedMcpServersPaths.length > 0)
+  ) {
+    lines.push(
+      `Claude hygiene · disableClaudeAiConnectors: ${report.claudeHygiene.disableClaudeAiConnectors ? "true" : "false"} · deniedMcpServers: ${report.claudeHygiene.deniedMcpServers.length} · auto-memory: ${report.claudeHygiene.autoMemoryFiles.length} files`,
+    );
+  }
+
   for (const summary of [claude, codex, cursor]) {
     if (summary.sources.length === 0) continue;
     lines.push("", `${summary.agent.toUpperCase()} active context files:`);
     for (const file of summary.sources) {
+      lines.push(
+        `- ~${file.estimatedTokens.toLocaleString("en-US")} tokens · ${file.kind} · ${file.path}`,
+      );
+    }
+  }
+
+  if (report.companionSources && report.companionSources.length > 0) {
+    lines.push("", "COMPANION active context files:");
+    for (const file of report.companionSources) {
       lines.push(
         `- ~${file.estimatedTokens.toLocaleString("en-US")} tokens · ${file.kind} · ${file.path}`,
       );

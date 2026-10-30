@@ -1,6 +1,6 @@
 {
   "name": "@framy2/ctxwise",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "CtxWise: The local-first AI Context Firewall, MCP Schema Tree-Shaker, and Token Profiler for Claude Code, OpenAI Codex, and Cursor.",
   "type": "module",
   "bin": {

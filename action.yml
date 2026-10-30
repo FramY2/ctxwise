@@ -22,6 +22,10 @@ inputs:
     description: "Node.js version to run CtxWise"
     required: false
     default: "22"
+  sarif-file:
+    description: "Optional path to write a SARIF 2.1.0 security report for GitHub Code Scanning"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -34,10 +38,14 @@ runs:
     - name: Run CtxWise Context Shield (Secret & Prompt-Injection Guard)
       shell: bash
       run: |
+        SARIF_ARGS=()
+        if [ -n "${{ inputs.sarif-file }}" ]; then
+          SARIF_ARGS=(--sarif "${{ inputs.sarif-file }}")
+        fi
         if [ "${{ inputs.fail-on-secrets }}" = "true" ]; then
-          npx --yes @framy2/ctxwise shield --fail-on-risk
+          npx --yes @framy2/ctxwise shield "${SARIF_ARGS[@]}" --fail-on-risk
         else
-          npx --yes @framy2/ctxwise shield
+          npx --yes @framy2/ctxwise shield "${SARIF_ARGS[@]}"
         fi
 
     - name: Run Multi-Agent Context Surface Audit (Claude Code + Codex + Cursor)
