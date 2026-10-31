@@ -149,4 +149,29 @@ describe("calculateReceipt", () => {
     expect(receipt.context.percentUsed).toBeNull();
     expect(renderReceipt(receipt)).toContain("prompt context unknown");
   });
+
+  it("normalizes dated model snapshot suffixes and renders 5h + weekly quota windows", () => {
+    const receipt = calculateReceipt({
+      authMode: "chatgpt",
+      catalog,
+      model: "gpt-5.6-sol-2026-08-08",
+      quota: {
+        usedPercent: 40,
+        windowDurationMins: 300,
+        resetsAt: 1_900_000_000,
+        provenance: "exact",
+        secondary: {
+          usedPercent: 15,
+          windowDurationMins: 10_080,
+          resetsAt: 1_900_600_000,
+          provenance: "exact",
+        },
+      },
+      usage,
+    });
+
+    expect(receipt.credits?.value).toBeGreaterThan(0);
+    const rendered = renderReceipt(receipt);
+    expect(rendered).toContain("quota 40% used (5h 40% · weekly 15%)");
+  });
 });

@@ -885,10 +885,12 @@ program
   .action(async (options) => {
     const home = codexHome();
     const scope = await commandProjectScope(home, options.project);
+    const explicitClaudeHome =
+      options.claudeHome ?? process.env.CLAUDE_CONFIG_DIR;
     const report = await runContextShield({
       projectRoot: scope.projectRoot,
-      ...(options.claudeHome
-        ? { claudeHome: claudeHome(options.claudeHome) }
+      ...(explicitClaudeHome
+        ? { claudeHome: claudeHome(explicitClaudeHome) }
         : {}),
     });
     if (options.sarif) {

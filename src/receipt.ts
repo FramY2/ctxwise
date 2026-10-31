@@ -234,7 +234,11 @@ export function renderReceipt(receipt: Receipt): string {
         ? `credit equivalent ≈ ${compactDecimal(receipt.credits.value, 4)}`
         : "credit equivalent unknown",
       receipt.quota
-        ? `quota ${compactDecimal(receipt.quota.usedPercent, 1)}% used`
+        ? `quota ${compactDecimal(receipt.quota.usedPercent, 1)}% used${
+            receipt.quota.secondary
+              ? ` (5h ${compactDecimal(receipt.quota.usedPercent, 1)}% · weekly ${compactDecimal(receipt.quota.secondary.usedPercent, 1)}%)`
+              : ""
+          }`
         : "quota unknown",
     );
     if (receipt.apiCost?.kind === "comparison") {

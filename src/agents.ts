@@ -242,9 +242,9 @@ export async function auditMultiAgentSurface(options: {
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       if (
-        parsed.mcpServers &&
-        typeof parsed.mcpServers === "object" &&
-        !Array.isArray(parsed.mcpServers)
+        parsed.mcpServers !== undefined &&
+        parsed.mcpServers !== null &&
+        typeof parsed.mcpServers === "object"
       ) {
         claudeHygiene.misplacedMcpServersPaths.push(displayPath);
       }
@@ -346,13 +346,22 @@ export async function auditMultiAgentSurface(options: {
     if (basename(cHome) !== ".claude") {
       projectsRootCandidates.push(join(cHome, ".claude", "projects"));
     }
-    const baseNameSlug = basename(root);
-    const slugCandidates = new Set([
-      baseNameSlug,
-      root.replace(/[:\\/]/g, "-"),
-      root.replace(/[:\\/]+/g, "-"),
-      root.replace(/[:\\/]+/g, "-").replace(/^-+/, ""),
-    ]);
+    const baseNameSlug = basename(root).toLowerCase();
+    const parentNameSlug = basename(dirname(root)).toLowerCase();
+    const parentAndBaseSuffix =
+      parentNameSlug && parentNameSlug !== "."
+        ? `-${parentNameSlug}-${baseNameSlug}`
+        : "";
+    const exactSlugCandidates = new Set(
+      [
+        baseNameSlug,
+        root.replace(/[:\\/]/g, "-"),
+        root.replace(/[:\\/]+/g, "-"),
+        root.replace(/[:\\/]+/g, "-").replace(/^-+/, ""),
+        root.replace(/[^a-zA-Z0-9-]+/g, "-"),
+        root.replace(/[^a-zA-Z0-9-]+/g, "-").replace(/^-+/, ""),
+      ].map((s) => s.toLowerCase()),
+    );
 
     const seenMemoryPaths = new Set<string>();
     for (const projectsRoot of projectsRootCandidates) {
@@ -360,12 +369,34 @@ export async function auditMultiAgentSurface(options: {
       const entries = await readdir(projectsRoot, {
         withFileTypes: true,
       }).catch(() => []);
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const matchesProject =
-          slugCandidates.has(entry.name) ||
-          entry.name.endsWith(`-${baseNameSlug}`);
-        if (!matchesProject) continue;
+      const dirEntries = entries.filter((e) => e.isDirectory());
+
+      const exactMatches = dirEntries.filter((e) =>
+        exactSlugCandidates.has(e.name.toLowerCase()),
+      );
+      const parentMatches =
+        exactMatches.length === 0 && parentAndBaseSuffix
+          ? dirEntries.filter((e) =>
+              e.name.toLowerCase().endsWith(parentAndBaseSuffix),
+            )
+          : [];
+      const fallbackSuffixMatches =
+        exactMatches.length === 0 && parentMatches.length === 0
+          ? dirEntries.filter((e) =>
+              e.name.toLowerCase().endsWith(`-${baseNameSlug}`),
+            )
+          : [];
+
+      const matchedDirs =
+        exactMatches.length > 0
+          ? exactMatches
+          : parentMatches.length > 0
+            ? parentMatches
+            : fallbackSuffixMatches.length === 1
+              ? fallbackSuffixMatches
+              : [];
+
+      for (const entry of matchedDirs) {
         const memoryDir = join(projectsRoot, entry.name, "memory");
         const memoryFiles = await walkFiles(
           memoryDir,

@@ -225,6 +225,50 @@ describe("Multi-Agent Audit, Token Diet Compressor, and Sync", () => {
       expect(rendered).toContain("COMPANION active context files:");
       expect(rendered).toContain("project/GEMINI.md");
       expect(rendered).toContain("project/.github/copilot-instructions.md");
+
+      // Disambiguate when two projects share the same folder basename (clientA/app vs clientB/app)
+      const clientAApp = join(root, "clientA", "app");
+      const clientBApp = join(root, "clientB", "app");
+      await mkdir(clientAApp, { recursive: true });
+      await mkdir(clientBApp, { recursive: true });
+      await mkdir(
+        join(claudeHomeDir, "projects", "-work-clientA-app", "memory"),
+        { recursive: true },
+      );
+      await mkdir(
+        join(claudeHomeDir, "projects", "-work-clientB-app", "memory"),
+        { recursive: true },
+      );
+      await writeFile(
+        join(
+          claudeHomeDir,
+          "projects",
+          "-work-clientA-app",
+          "memory",
+          "MEMORY.md",
+        ),
+        "# Client A Memory\n",
+        "utf8",
+      );
+      await writeFile(
+        join(
+          claudeHomeDir,
+          "projects",
+          "-work-clientB-app",
+          "memory",
+          "MEMORY.md",
+        ),
+        "# Client B Memory\n",
+        "utf8",
+      );
+
+      const clientAReport = await auditMultiAgentSurface({
+        projectRoot: clientAApp,
+        claudeHome: claudeHomeDir,
+      });
+      expect(clientAReport.claudeHygiene.autoMemoryFiles).toEqual([
+        "claude-home/projects/-work-clientA-app/memory/MEMORY.md",
+      ]);
     });
   });
 });

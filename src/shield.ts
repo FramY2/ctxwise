@@ -294,9 +294,9 @@ export function scanContentWithShield(
       if (
         parsed &&
         typeof parsed === "object" &&
-        parsed.mcpServers &&
-        typeof parsed.mcpServers === "object" &&
-        !Array.isArray(parsed.mcpServers)
+        parsed.mcpServers !== undefined &&
+        parsed.mcpServers !== null &&
+        typeof parsed.mcpServers === "object"
       ) {
         const lineIdx = lines.findIndex((l) => /"mcpServers"\s*:/.test(l));
         const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
@@ -470,6 +470,19 @@ export function buildShieldSarif(
         '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation; move MCP servers to .mcp.json or ~/.claude.json.',
     },
   ];
+
+  const knownRuleIds = new Set(catalogRules.map((r) => r.id));
+  for (const finding of report.findings) {
+    if (!knownRuleIds.has(finding.id)) {
+      knownRuleIds.add(finding.id);
+      catalogRules.push({
+        id: finding.id,
+        category: finding.category,
+        severity: finding.severity,
+        message: finding.message,
+      });
+    }
+  }
 
   const rules: SarifRuleDescriptor[] = catalogRules.map((rule) => ({
     id: rule.id,
