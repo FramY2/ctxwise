@@ -1,3 +1,4 @@
+/// <reference path="./vscode.d.ts" />
 import * as vscode from "vscode";
 import {
   analyzeWorkspaceContext,
@@ -7,18 +8,53 @@ import {
 
 let statusBarItem: vscode.StatusBarItem | undefined;
 let sharedTerminal: vscode.Terminal | undefined;
+let sharedTerminalRoot: string | undefined;
 
-function getPrimaryWorkspaceRoot(): string | undefined {
+function normalizeFsPath(p: string): string {
+  return p.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+export function getActiveWorkspaceRoot(): string | undefined {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) {
     return undefined;
+  }
+  const activeUri = vscode.window.activeTextEditor?.document.uri;
+  if (activeUri?.fsPath) {
+    const normDoc = normalizeFsPath(activeUri.fsPath);
+    let bestFolder: vscode.WorkspaceFolder | undefined;
+    let bestLen = -1;
+    for (const folder of folders) {
+      const normFolder = normalizeFsPath(folder.uri.fsPath);
+      if (
+        (normDoc === normFolder || normDoc.startsWith(`${normFolder}/`)) &&
+        normFolder.length > bestLen
+      ) {
+        bestFolder = folder;
+        bestLen = normFolder.length;
+      }
+    }
+    if (bestFolder) {
+      return bestFolder.uri.fsPath;
+    }
   }
   return folders[0]?.uri.fsPath;
 }
 
 function runCtxwiseCliInTerminal(subcommandArgs: string): void {
-  if (!sharedTerminal) {
-    sharedTerminal = vscode.window.createTerminal("CtxWise");
+  const root = getActiveWorkspaceRoot();
+  if (
+    !sharedTerminal ||
+    sharedTerminal.exitStatus !== undefined ||
+    sharedTerminalRoot !== root
+  ) {
+    if (sharedTerminal && sharedTerminal.exitStatus === undefined) {
+      sharedTerminal.dispose();
+    }
+    sharedTerminal = vscode.window.createTerminal(
+      root ? { name: "CtxWise", cwd: root } : "CtxWise",
+    );
+    sharedTerminalRoot = root;
   }
   sharedTerminal.show(true);
   sharedTerminal.sendText(`npx @framy2/ctxwise ${subcommandArgs}`, true);
@@ -28,7 +64,7 @@ export function refreshStatusBar(): void {
   if (!statusBarItem) {
     return;
   }
-  const root = getPrimaryWorkspaceRoot();
+  const root = getActiveWorkspaceRoot();
   if (!root) {
     statusBarItem.hide();
     return;
@@ -76,6 +112,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeActiveTextEditor(() => refreshStatusBar()),
   );
 
+  if (typeof vscode.window.onDidCloseTerminal === "function") {
+    context.subscriptions.push(
+      vscode.window.onDidCloseTerminal((closed) => {
+        if (closed === sharedTerminal) {
+          sharedTerminal = undefined;
+          sharedTerminalRoot = undefined;
+        }
+      }),
+    );
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand("ctxwise.runFullAudit", () => {
       runCtxwiseCliInTerminal("agents");
@@ -98,5 +145,10 @@ export function deactivate(): void {
   if (statusBarItem) {
     statusBarItem.dispose();
     statusBarItem = undefined;
+  }
+  if (sharedTerminal) {
+    sharedTerminal.dispose();
+    sharedTerminal = undefined;
+    sharedTerminalRoot = undefined;
   }
 }

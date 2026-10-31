@@ -688,6 +688,50 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         { name: "GPT-6.1-Sol", inputPerM: 2.5 },
       ];
 
+      function isPlaceholderMatch(matchText, lineText) {
+        const lowerMatch = matchText.toLowerCase();
+        const lowerLine = lineText.toLowerCase();
+        if (
+          lowerMatch.includes("example") ||
+          lowerMatch.includes("placeholder") ||
+          lowerMatch.includes("redacted") ||
+          lowerMatch.includes("your_") ||
+          lowerMatch.includes("xxxx") ||
+          lowerMatch.includes("000000") ||
+          /^\$\{[a-z0-9_]+\}$/i.test(matchText)
+        ) {
+          return true;
+        }
+        if (
+          lowerLine.includes("<your") ||
+          lowerLine.includes("your_api_key") ||
+          lowerLine.includes("replace_me") ||
+          lowerLine.includes("example_key") ||
+          lowerLine.includes("placeholder")
+        ) {
+          return true;
+        }
+        if (matchText.includes("://")) {
+          const credMatch = /:\/\/([^/\s:@]+):([^/\s@]+)@/.exec(matchText);
+          if (credMatch) {
+            const pass = (credMatch[2] || "").toLowerCase();
+            if (
+              pass === "pass" ||
+              pass === "password" ||
+              pass === "secret" ||
+              pass === "changeme" ||
+              pass === "postgres" ||
+              pass === "root" ||
+              pass.startsWith("$") ||
+              pass.startsWith("<")
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
       function detectRealSecrets(text) {
         const findings = [];
         const lines = text.split(/\r?\n/);
@@ -705,28 +749,104 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
             re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{24,}\b/g,
           },
           {
+            name: "GitHub Fine-Grained PAT",
+            re: /\bgithub_pat_[A-Za-z0-9_]{24,}\b/g,
+          },
+          {
+            name: "AWS Access Key",
+            re: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+          },
+          {
+            name: "Private Key Block",
+            re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/g,
+          },
+          {
             name: "Database/Broker URI Credentials",
-            re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^/\s:@]+:[^/\s@]+@[^\s"']+/gi,
+            re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqp|amqps):\/\/[^/\s:@]+:[^/\s@]+@[^\s"']+/gi,
           },
         ];
         for (const line of lines) {
-          const lower = line.toLowerCase();
-          if (
-            lower.includes("example") ||
-            lower.includes("placeholder") ||
-            lower.includes("000000") ||
-            lower.includes("<your")
-          ) {
-            continue;
-          }
           for (const pat of patterns) {
             const re = new RegExp(pat.re.source, pat.re.flags);
-            if (re.test(line)) {
-              findings.push(pat.name);
+            let m = re.exec(line);
+            while (m !== null) {
+              if (!isPlaceholderMatch(m[0], line)) {
+                findings.push(pat.name);
+              }
+              m = re.exec(line);
             }
           }
         }
         return findings;
+      }
+
+      const CLAUDE_SETTINGS_KEYS = [
+        "permissions",
+        "env",
+        "hooks",
+        "model",
+        "statusLine",
+        "includeCoAuthoredBy",
+        "cleanupPeriodDays",
+        "apiKeyHelper",
+        "disableClaudeAiConnectors",
+        "allowedMcpServers",
+        "deniedMcpServers",
+        "enabledPlugins",
+        "sandbox",
+        "$schema",
+        "$comment",
+      ];
+
+      function estimateServerHeuristic(key, srv) {
+        if (
+          Number(srv?.estimatedTools) > 0 &&
+          Number(srv?.estimatedSchemaTokens) > 0
+        ) {
+          return {
+            tools: Number(srv.estimatedTools),
+            tokens: Number(srv.estimatedSchemaTokens),
+          };
+        }
+        const rawSpec = JSON.stringify({ key, srv }).toLowerCase();
+        let tools = Number(srv?.estimatedTools) || 12;
+        let tokens = Number(srv?.estimatedSchemaTokens) || 0;
+        if (!srv?.estimatedTools) {
+          if (rawSpec.includes("github")) {
+            tools = 26;
+            tokens = 9400;
+          } else if (
+            rawSpec.includes("playwright") ||
+            rawSpec.includes("puppeteer")
+          ) {
+            tools = 22;
+            tokens = 7600;
+          } else if (
+            rawSpec.includes("postgres") ||
+            rawSpec.includes("sqlite")
+          ) {
+            tools = 14;
+            tokens = 4800;
+          } else if (rawSpec.includes("filesystem")) {
+            tools = 11;
+            tokens = 2900;
+          } else {
+            tools = 12;
+            tokens = 3120;
+          }
+        } else if (!tokens) {
+          tokens = tools * 260;
+        }
+        if (rawSpec.includes("mcp-diet") && !srv?.estimatedSchemaTokens) {
+          if (rawSpec.includes("--read-only") || rawSpec.includes("--allow")) {
+            tools = Math.max(2, Math.ceil(tools * 0.25));
+            tokens = Math.ceil(tokens * 0.22);
+          }
+          if (rawSpec.includes("--max-desc")) {
+            tokens = Math.ceil(tokens * 0.65);
+          }
+        }
+        return { tools, tokens };
       }
 
       function recalculate() {
@@ -743,28 +863,80 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
 
         try {
           const parsed = JSON.parse(mcpRaw);
-          if (parsed && typeof parsed === "object") {
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
             if (
-              ("permissions" in parsed || "$comment" in parsed) &&
-              "mcpServers" in parsed
+              "mcpServers" in parsed &&
+              CLAUDE_SETTINGS_KEYS.some((k) => k in parsed)
             ) {
               misplacedSettingsMcp = true;
             }
             const servers = parsed.mcpServers || {};
-            for (const key of Object.keys(servers)) {
-              const srv = servers[key];
-              if (srv && srv.disabled === true) continue;
-              mcpServersCount += 1;
-              const tools = Number(srv?.estimatedTools) || 12;
-              const tok = Number(srv?.estimatedSchemaTokens) || tools * 260;
-              mcpToolsCount += tools;
-              mcpSchemaTokens += tok;
+            if (
+              servers &&
+              typeof servers === "object" &&
+              !Array.isArray(servers)
+            ) {
+              for (const key of Object.keys(servers)) {
+                const srv = servers[key];
+                if (srv && (srv.disabled === true || srv.enabled === false)) {
+                  continue;
+                }
+                mcpServersCount += 1;
+                const est = estimateServerHeuristic(key, srv);
+                mcpToolsCount += est.tools;
+                mcpSchemaTokens += est.tokens;
+              }
             }
           }
         } catch {
-          mcpSchemaTokens = Math.ceil(
-            new TextEncoder().encode(mcpRaw).length / 4,
-          );
+          const tomlLines = mcpRaw.split(/\r?\n/);
+          const headerRe =
+            /^\s*\[mcp_servers\.(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_-]+))\]\s*(?:#.*)?$/;
+          let currentSrv = null;
+          let currentDisabled = false;
+          const activeTomlServers = [];
+          const commitToml = () => {
+            if (currentSrv && !currentDisabled) {
+              activeTomlServers.push(currentSrv);
+            }
+          };
+          for (const line of tomlLines) {
+            const hm = headerRe.exec(line);
+            if (hm) {
+              commitToml();
+              currentSrv = hm[1] || hm[2] || hm[3];
+              currentDisabled = false;
+              continue;
+            }
+            if (/^\s*\[.*\]\s*(?:#.*)?$/.test(line)) {
+              commitToml();
+              currentSrv = null;
+              currentDisabled = false;
+              continue;
+            }
+            if (currentSrv) {
+              const stripped = line.replace(/#.*$/, "").trim();
+              if (
+                /^enabled\s*=\s*false$/i.test(stripped) ||
+                /^disabled\s*=\s*true$/i.test(stripped)
+              ) {
+                currentDisabled = true;
+              }
+            }
+          }
+          commitToml();
+          if (activeTomlServers.length > 0) {
+            mcpServersCount = activeTomlServers.length;
+            for (const name of activeTomlServers) {
+              const est = estimateServerHeuristic(name, {});
+              mcpToolsCount += est.tools;
+              mcpSchemaTokens += est.tokens;
+            }
+          } else {
+            mcpSchemaTokens = Math.ceil(
+              new TextEncoder().encode(mcpRaw).length / 4,
+            );
+          }
         }
 
         const totalPerTurn = guidanceTokens + mcpSchemaTokens;
@@ -798,13 +970,25 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           " / 32,768 B (" +
           rawCapPercent +
           "%)";
-        document.getElementById("codexCapBar").style.width = capPercent + "%";
+        const capBar = document.getElementById("codexCapBar");
+        capBar.style.width = capPercent + "%";
+        capBar.style.background =
+          rawCapPercent > 100
+            ? "var(--red)"
+            : rawCapPercent > 85
+              ? "var(--amber)"
+              : "linear-gradient(90deg, var(--green), var(--cyan))";
 
         let grade = "A";
         if (secrets.length > 0 || rawCapPercent > 100) grade = "F";
-        else if (misplacedSettingsMcp || totalPerTurn > 15000) grade = "D";
-        else if (totalPerTurn > 8000) grade = "C";
-        else if (totalPerTurn > 3500) grade = "B";
+        else if (
+          misplacedSettingsMcp ||
+          totalPerTurn > 15000 ||
+          rawCapPercent > 85
+        )
+          grade = "D";
+        else if (totalPerTurn > 8000 || rawCapPercent > 65) grade = "C";
+        else if (totalPerTurn > 3500 || rawCapPercent > 40) grade = "B";
 
         const badge = document.getElementById("gradeBadge");
         badge.textContent = "Grade " + grade;

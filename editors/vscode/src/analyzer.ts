@@ -112,12 +112,16 @@ export function countSecretsInContent(content: string): number {
 export function parseMcpServersFromJson(content: string): string[] {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return [];
+    }
     const servers = parsed["mcpServers"];
     if (servers && typeof servers === "object" && !Array.isArray(servers)) {
       return Object.keys(servers as Record<string, unknown>).filter((name) => {
         const entry = (servers as Record<string, unknown>)[name];
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-          return (entry as Record<string, unknown>)["disabled"] !== true;
+          const rec = entry as Record<string, unknown>;
+          return rec["disabled"] !== true && rec["enabled"] !== false;
         }
         return true;
       });
@@ -130,15 +134,50 @@ export function parseMcpServersFromJson(content: string): string[] {
 
 export function parseMcpServersFromToml(content: string): string[] {
   const names = new Set<string>();
-  const sectionRegex = /^\s*\[mcp_servers\.([A-Za-z0-9_-]+)\]\s*$/gm;
-  let match: RegExpExecArray | null = sectionRegex.exec(content);
-  while (match !== null) {
-    const serverName = match[1];
-    if (serverName) {
-      names.add(serverName);
+  const lines = content.split(/\r?\n/);
+  const headerRegex =
+    /^\s*\[mcp_servers\.(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_-]+))\]\s*(?:#.*)?$/;
+  const anySectionRegex = /^\s*\[.*\]\s*(?:#.*)?$/;
+
+  let currentServer: string | undefined;
+  let currentDisabled = false;
+
+  const commitCurrent = (): void => {
+    if (currentServer) {
+      if (!currentDisabled) {
+        names.add(currentServer);
+      } else {
+        names.delete(currentServer);
+      }
     }
-    match = sectionRegex.exec(content);
+  };
+
+  for (const line of lines) {
+    const headerMatch = headerRegex.exec(line);
+    if (headerMatch) {
+      commitCurrent();
+      currentServer = headerMatch[1] ?? headerMatch[2] ?? headerMatch[3];
+      currentDisabled = false;
+      continue;
+    }
+    if (anySectionRegex.test(line)) {
+      commitCurrent();
+      currentServer = undefined;
+      currentDisabled = false;
+      continue;
+    }
+    if (currentServer) {
+      const stripped = line.replace(/#.*$/, "").trim();
+      if (
+        /^enabled\s*=\s*false$/i.test(stripped) ||
+        /^disabled\s*=\s*true$/i.test(stripped)
+      ) {
+        currentDisabled = true;
+      }
+    }
   }
+  commitCurrent();
+
   return [...names];
 }
 
@@ -229,8 +268,13 @@ export function analyzeWorkspaceContext(
 
     if (relPath === ".claude/settings.json") {
       try {
-        const parsed = JSON.parse(content) as Record<string, unknown>;
-        if ("mcpServers" in parsed) {
+        const parsed = JSON.parse(content) as unknown;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed) &&
+          "mcpServers" in parsed
+        ) {
           misplacedMcpInSettings = true;
         }
       } catch {

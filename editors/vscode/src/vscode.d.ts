@@ -50,10 +50,20 @@ declare module "vscode" {
     readonly index: number;
   }
 
+  export interface TextDocument {
+    readonly uri: Uri;
+  }
+
+  export interface TextEditor {
+    readonly document: TextDocument;
+  }
+
   export interface Terminal {
     readonly name: string;
+    readonly exitStatus?: { readonly code: number | undefined } | undefined;
     show(preserveFocus?: boolean): void;
     sendText(text: string, addNewLine?: boolean): void;
+    dispose(): void;
   }
 
   export interface ExtensionContext {
@@ -61,16 +71,22 @@ declare module "vscode" {
   }
 
   export namespace window {
+    export let activeTextEditor: TextEditor | undefined;
     export function createStatusBarItem(
       alignment?: StatusBarAlignment,
       priority?: number,
     ): StatusBarItem;
-    export function createTerminal(name?: string): Terminal;
+    export function createTerminal(
+      nameOrOptions?: string | { name?: string; cwd?: string },
+    ): Terminal;
     export function showInformationMessage(
       message: string,
     ): Promise<string | undefined>;
     export function onDidChangeActiveTextEditor(
       listener: (e: unknown) => unknown,
+    ): Disposable;
+    export function onDidCloseTerminal(
+      listener: (e: Terminal) => unknown,
     ): Disposable;
   }
 
