@@ -1,0 +1,64 @@
+{
+  "name": "ctxwise-vscode",
+  "displayName": "CtxWise — AI Context Firewall & MCP Token Profiler",
+  "description": "Live status-bar token profiler, Codex 32 KiB byte-cap monitor, MCP schema tax estimator, and secret shield for Claude Code, OpenAI Codex, and Cursor.",
+  "version": "1.1.0",
+  "publisher": "FramY2",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FramY2/ctxwise.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "mcp",
+    "tokens",
+    "context-window",
+    "security"
+  ],
+  "activationEvents": [
+    "workspaceContains:CLAUDE.md",
+    "workspaceContains:AGENTS.md",
+    "workspaceContains:AGENTS.override.md",
+    "workspaceContains:.cursorrules",
+    "workspaceContains:.mcp.json",
+    "workspaceContains:.codex/config.toml",
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ctxwise.runFullAudit",
+        "title": "CtxWise: Run Full Audit"
+      },
+      {
+        "command": "ctxwise.scanSecrets",
+        "title": "CtxWise: Scan Secrets (Shield)"
+      },
+      {
+        "command": "ctxwise.inspectMcpTax",
+        "title": "CtxWise: Inspect MCP Token Tax"
+      },
+      {
+        "command": "ctxwise.refreshStatus",
+        "title": "CtxWise: Refresh Context Status"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run ../../tests/vscode-extension.test.ts"
+  }
+}

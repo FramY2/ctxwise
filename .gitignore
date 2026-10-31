@@ -8,3 +8,4 @@ ctxray.lock.json
 .DS_Store
 Thumbs.db
 benchmarks/demo/work/
+editors/vscode/dist/

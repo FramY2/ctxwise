@@ -74,7 +74,7 @@
   "bugs": {
     "url": "https://github.com/FramY2/ctxwise/issues"
   },
-  "homepage": "https://github.com/FramY2/ctxwise#readme",
+  "homepage": "https://framy2.github.io/ctxwise/",
   "publishConfig": {
     "access": "public",
     "provenance": true

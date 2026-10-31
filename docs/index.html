@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      CtxWise — Interactive AI Context Firewall &amp; MCP Token Tax Calculator
+    </title>
+    <meta
+      name="description"
+      content="Calculate your per-turn MCP schema token tax, 50-turn session cost across Claude Opus 4.7 / Sonnet 4.6 / GPT-6.1-Sol / GPT-6-Luna, Codex 32 KiB truncation status, and leaked secrets entirely in your browser."
+    />
+    <style>
+      :root {
+        --bg: #090d16;
+        --panel: #111827;
+        --panel-alt: #172033;
+        --border: #26324d;
+        --text: #f3f4f6;
+        --muted: #9ca3af;
+        --accent: #7657ff;
+        --cyan: #2de2e6;
+        --green: #10b981;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --mono:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter,
+          Helvetica, Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(
+          circle at 50% 0%,
+          #171836 0%,
+          var(--bg) 55%
+        );
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.55;
+      }
+      a {
+        color: var(--cyan);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .container {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      header {
+        text-align: center;
+        padding: 1.5rem 0 2rem;
+      }
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.28rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(118, 87, 255, 0.16);
+        border: 1px solid rgba(118, 87, 255, 0.45);
+        color: #ddd6fe;
+      }
+      .pill.cyan {
+        background: rgba(45, 226, 230, 0.12);
+        border-color: rgba(45, 226, 230, 0.4);
+        color: #a5f3fc;
+      }
+      h1 {
+        font-size: clamp(1.9rem, 4vw, 3rem);
+        margin: 0.4rem 0 0.75rem;
+        letter-spacing: -0.02em;
+      }
+      .subtitle {
+        max-width: 780px;
+        margin: 0 auto 1.5rem;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.62rem 1.15rem;
+        border-radius: 0.55rem;
+        font-weight: 600;
+        font-size: 0.92rem;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text);
+        transition: all 0.15s ease;
+      }
+      .btn:hover {
+        border-color: var(--cyan);
+        text-decoration: none;
+      }
+      .btn.primary {
+        background: linear-gradient(135deg, var(--accent), #5b3df5);
+        border-color: #8b70ff;
+        color: #fff;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 1.25rem;
+        margin-top: 1.5rem;
+      }
+      @media (max-width: 920px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        background: rgba(17, 24, 39, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        padding: 1.35rem;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      }
+      .card h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .preset-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-bottom: 0.85rem;
+      }
+      .preset-btn {
+        font-size: 0.78rem;
+        padding: 0.35rem 0.68rem;
+        border-radius: 0.45rem;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text);
+        cursor: pointer;
+      }
+      .preset-btn:hover,
+      .preset-btn.active {
+        border-color: var(--cyan);
+        background: rgba(45, 226, 230, 0.12);
+      }
+      label.field-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin: 0.65rem 0 0.3rem;
+      }
+      textarea {
+        width: 100%;
+        min-height: 150px;
+        background: #0b101b;
+        color: #e5e7eb;
+        border: 1px solid var(--border);
+        border-radius: 0.55rem;
+        padding: 0.7rem;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        resize: vertical;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .metric-box {
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: 0.65rem;
+        padding: 0.8rem 0.95rem;
+      }
+      .metric-label {
+        font-size: 0.76rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .metric-val {
+        font-size: 1.45rem;
+        font-weight: 700;
+        font-family: var(--mono);
+        margin-top: 0.15rem;
+      }
+      .progress-wrap {
+        margin: 0.85rem 0 1.1rem;
+      }
+      .progress-track {
+        height: 10px;
+        background: #0b101b;
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--green), var(--cyan));
+        width: 0%;
+        transition: width 0.2s ease;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+        margin-top: 0.5rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.52rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.78rem;
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        font-family: var(--mono);
+      }
+      .alert-box {
+        margin-top: 0.9rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 0.55rem;
+        font-size: 0.84rem;
+        border: 1px solid var(--border);
+        background: #0b101b;
+      }
+      .alert-box.ok {
+        border-color: rgba(16, 185, 129, 0.45);
+        color: #a7f3d0;
+      }
+      .alert-box.warn {
+        border-color: rgba(239, 68, 68, 0.6);
+        color: #fecaca;
+      }
+      .eco-section {
+        margin-top: 2.5rem;
+      }
+      .eco-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.1rem;
+        margin-top: 1rem;
+      }
+      @media (max-width: 920px) {
+        .eco-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .cmd-snippet {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        background: #0b101b;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.55rem 0.7rem;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        margin-top: 0.75rem;
+        overflow-x: auto;
+      }
+      .copy-btn {
+        background: var(--panel-alt);
+        color: var(--cyan);
+        border: 1px solid var(--border);
+        border-radius: 0.35rem;
+        padding: 0.22rem 0.5rem;
+        font-size: 0.72rem;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      footer {
+        margin-top: 3.5rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="badge-row">
+          <span class="pill">🛡️ @framy2/ctxwise v1.1.0</span>
+          <span class="pill cyan">⚡ @framy2/mcp-diet v0.1.0</span>
+          <span class="pill">🔌 @framy2/agent-wire-tap v0.1.0</span>
+          <span class="pill cyan">100% Client-Side · Zero Telemetry</span>
+        </div>
+        <h1>AI Context Firewall &amp; MCP Token Tax Calculator</h1>
+        <p class="subtitle">
+          Paste your <code>CLAUDE.md</code> / <code>AGENTS.md</code> and
+          <code>.mcp.json</code> (or pick a realistic preset below) to measure
+          per-turn startup token overhead, 50-turn session costs across
+          <strong>Claude Opus 4.7</strong>, <strong>Sonnet 4.6</strong>,
+          <strong>GPT-6.1-Sol</strong> &amp; <strong>GPT-6-Luna</strong>, OpenAI
+          Codex <code>32 KiB</code> truncation risk, and leaked secrets.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="https://github.com/FramY2/ctxwise"
+            >⭐ Star FramY2/ctxwise</a
+          >
+          <a class="btn" href="https://github.com/FramY2/mcp-diet"
+            >🌳 Explore mcp-diet Proxy</a
+          >
+          <a class="btn" href="https://github.com/FramY2/agent-wire-tap"
+            >🔬 Explore agent-wire-tap</a
+          >
+          <a class="btn" href="https://www.npmjs.com/package/@framy2/ctxwise"
+            >📦 npm: @framy2/ctxwise</a
+          >
+        </div>
+      </header>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>
+            <span>1. Workspace Context Input</span>
+            <span
+              style="font-size: 0.78rem; color: var(--muted); font-weight: 400"
+              >Runs 100% locally in your browser</span
+            >
+          </h2>
+          <div class="preset-bar">
+            <button
+              class="preset-btn active"
+              type="button"
+              onclick="loadPreset('heavy', this)"
+            >
+              🔥 Preset: 3 Heavy MCP Servers (GitHub + Postgres + Playwright)
+            </button>
+            <button
+              class="preset-btn"
+              type="button"
+              onclick="loadPreset('leak', this)"
+            >
+              🚨 Preset: Leaked Key + #105885 Misplaced mcpServers
+            </button>
+            <button
+              class="preset-btn"
+              type="button"
+              onclick="loadPreset('lean', this)"
+            >
+              ✅ Preset: Lean CtxWise + mcp-diet Setup
+            </button>
+          </div>
+
+          <label class="field-label" for="guidanceInput"
+            >CLAUDE.md / AGENTS.md / .cursorrules Content</label
+          >
+          <textarea id="guidanceInput" oninput="recalculate()"></textarea>
+
+          <label class="field-label" for="mcpInput"
+            >.mcp.json / .claude/settings.json Content</label
+          >
+          <textarea id="mcpInput" oninput="recalculate()"></textarea>
+        </div>
+
+        <div class="card">
+          <h2>
+            <span>2. Live Token Tax &amp; Security Audit</span>
+            <span id="gradeBadge" class="pill">Grade A</span>
+          </h2>
+
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-label">Per-Turn Startup Tax</div>
+              <div class="metric-val" id="perTurnTokens">0 tok</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">50-Turn Session Overhead</div>
+              <div class="metric-val" id="sessionTokens">0 tok</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Active MCP Servers / Tools</div>
+              <div class="metric-val" id="mcpStats">0 srv · 0 tools</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Security &amp; Hygiene Findings</div>
+              <div class="metric-val" id="securityStats">0 findings</div>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.8rem;
+                margin-bottom: 0.3rem;
+              "
+            >
+              <span
+                ><strong>OpenAI Codex 32 KiB (32,768 B)</strong> Guidance
+                Cap</span
+              >
+              <span id="codexCapLabel" style="font-family: var(--mono)"
+                >0 / 32,768 B (0%)</span
+              >
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="codexCapBar"></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Model Profile (2026 API Pricing)</th>
+                <th class="num">Input $/1M</th>
+                <th class="num">Per-Turn Tax</th>
+                <th class="num">50-Turn Session Tax</th>
+              </tr>
+            </thead>
+            <tbody id="costTableBody"></tbody>
+          </table>
+
+          <div id="shieldAlert" class="alert-box ok"></div>
+        </div>
+      </div>
+
+      <section class="eco-section">
+        <h2
+          style="text-align: center; font-size: 1.55rem; margin-bottom: 0.35rem"
+        >
+          🧩 The Complete Local-First AI Context Ecosystem
+        </h2>
+        <p style="text-align: center; color: var(--muted); margin-top: 0">
+          Static audit, runtime stdio MCP proxy, and zero-cost wire verification
+          — built to work together.
+        </p>
+
+        <div class="eco-grid">
+          <div class="card">
+            <h2>
+              <a href="https://github.com/FramY2/ctxwise">@framy2/ctxwise</a>
+              <span class="pill">v1.1.0</span>
+            </h2>
+            <p style="color: var(--muted); font-size: 0.9rem">
+              Static AI Context Firewall, MCP Schema Tree-Shaker
+              (<code>mcp-xray</code>), cross-agent sync (<code>CLAUDE.md</code>
+              ↔ <code>AGENTS.md</code> ↔ Cursor), and SARIF 2.1.0 Secret Shield.
+            </p>
+            <div class="cmd-snippet">
+              <code>npx @framy2/ctxwise shield --fail-on-risk</code>
+              <button
+                class="copy-btn"
+                type="button"
+                onclick="
+                  copyCmd('npx @framy2/ctxwise shield --fail-on-risk', this)
+                "
+              >
+                Copy
+              </button>
+            </div>
+            <div class="cmd-snippet">
+              <code>npx @framy2/ctxwise agents</code>
+              <button
+                class="copy-btn"
+                type="button"
+                onclick="copyCmd('npx @framy2/ctxwise agents', this)"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>
+              <a href="https://github.com/FramY2/mcp-diet">@framy2/mcp-diet</a>
+              <span class="pill cyan">v0.1.0</span>
+            </h2>
+            <p style="color: var(--muted); font-size: 0.9rem">
+              Zero-dependency stdio MCP proxy: deterministic
+              <code>tools/list</code> tree-shaking (<code>--read-only</code>,
+              <code>--max-desc</code>), <code>&gt;= 8 MiB</code> crash guard
+              (<code>--max-result-kb 512</code>), and live secret redaction.
+            </p>
+            <div class="cmd-snippet">
+              <code
+                >npx @framy2/mcp-diet --read-only --max-result-kb 512 --
+                ...</code
+              >
+              <button
+                class="copy-btn"
+                type="button"
+                onclick="
+                  copyCmd(
+                    'npx @framy2/mcp-diet --read-only --max-result-kb 512 --redact-secrets -- npx -y @modelcontextprotocol/server-github',
+                    this,
+                  )
+                "
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>
+              <a href="https://github.com/FramY2/agent-wire-tap"
+                >@framy2/agent-wire-tap</a
+              >
+              <span class="pill">v0.1.0</span>
+            </h2>
+            <p style="color: var(--muted); font-size: 0.9rem">
+              Zero-cost local loopback HTTP interceptor &amp; CI contract
+              tester. Captures exact outbound wire payloads from
+              <code>codex</code> or <code>claude</code> with
+              <strong>$0.00 API cost</strong>.
+            </p>
+            <div class="cmd-snippet">
+              <code
+                >npx @framy2/agent-wire-tap --assert-max-tools 12 -- codex exec
+                "ping"</code
+              >
+              <button
+                class="copy-btn"
+                type="button"
+                onclick="
+                  copyCmd(
+                    'npx @framy2/agent-wire-tap --assert-contains AGENTS.md --assert-max-tools 12 -- codex exec ping',
+                    this,
+                  )
+                "
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Apache-2.0 &amp; MIT Open Source by
+        <a href="https://github.com/FramY2">Christian Frascogna (@FramY2)</a> ·
+        <a href="https://github.com/FramY2/ctxwise">GitHub Repository</a> ·
+        <a href="https://www.npmjs.com/package/@framy2/ctxwise">npm Registry</a>
+      </footer>
+    </div>
+
+    <script>
+      const PRESETS = {
+        heavy: {
+          guidance: `# Monorepo Agent Instructions (CLAUDE.md / AGENTS.md)
+Always run typecheck, unit tests, and integration tests before committing.
+Follow strict TypeScript conventions (NodeNext, strict: true, exactOptionalPropertyTypes).
+
+<!-- Legacy verbose architecture notes duplicated across 4 files -->
+- Service A handles user authentication, OAuth2 token rotation, and session state.
+- Service B handles billing webhooks, Stripe idempotency keys, and invoice PDF rendering.
+- Service C handles background queue workers, dead-letter retries, and audit logs.
+`.repeat(6),
+          mcp: JSON.stringify(
+            {
+              mcpServers: {
+                github: {
+                  command: "npx",
+                  args: ["-y", "@modelcontextprotocol/server-github"],
+                  estimatedTools: 26,
+                  estimatedSchemaTokens: 9400,
+                },
+                postgres: {
+                  command: "npx",
+                  args: ["-y", "@modelcontextprotocol/server-postgres"],
+                  estimatedTools: 14,
+                  estimatedSchemaTokens: 4800,
+                },
+                playwright: {
+                  command: "npx",
+                  args: ["-y", "@playwright/mcp"],
+                  estimatedTools: 22,
+                  estimatedSchemaTokens: 7600,
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        },
+        leak: {
+          guidance: `# Project Context (CLAUDE.md)
+Use staging database for local debugging:
+DATABASE_URL="postgres://staging_admin:K9mP4xV8qL2wN7rJ@db.staging.internal:5432/core"
+Placeholder example (ignored by CtxWise Shield):
+OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
+`,
+          mcp: JSON.stringify(
+            {
+              $comment:
+                ".claude/settings.json — triggers anthropics/claude-code#105885 retry loop!",
+              permissions: { allow: ["Read", "Grep"] },
+              mcpServers: {
+                github: {
+                  command: "npx",
+                  args: ["-y", "@modelcontextprotocol/server-github"],
+                  env: {
+                    GITHUB_PERSONAL_ACCESS_TOKEN:
+                      "ghp_RealLeakedToken99887766554433221100AA",
+                  },
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        },
+        lean: {
+          guidance: `# Lean Synced Context (Managed by CtxWise sync --compress)
+- Build & verify: \`npm run check\` (types + vitest + coverage)
+- Style: strict TypeScript, ESM (\`.js\` imports), zero runtime telemetry
+- Security: run \`npx @framy2/ctxwise shield --fail-on-risk\` before PRs
+`,
+          mcp: JSON.stringify(
+            {
+              mcpServers: {
+                "github-diet": {
+                  command: "npx",
+                  args: [
+                    "-y",
+                    "@framy2/mcp-diet",
+                    "--read-only",
+                    "--max-desc",
+                    "160",
+                    "--max-result-kb",
+                    "512",
+                    "--redact-secrets",
+                    "--",
+                    "npx",
+                    "-y",
+                    "@modelcontextprotocol/server-github",
+                  ],
+                  estimatedTools: 6,
+                  estimatedSchemaTokens: 920,
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      };
+
+      const MODELS = [
+        { name: "Claude Opus 4.7", inputPerM: 15.0 },
+        { name: "GPT-6-Luna", inputPerM: 10.0 },
+        { name: "Claude Sonnet 4.6", inputPerM: 3.0 },
+        { name: "GPT-6.1-Sol", inputPerM: 2.5 },
+      ];
+
+      function detectRealSecrets(text) {
+        const findings = [];
+        const lines = text.split(/\r?\n/);
+        const patterns = [
+          {
+            name: "Anthropic API Key",
+            re: /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{16,}\b/g,
+          },
+          {
+            name: "OpenAI API Key",
+            re: /\bsk-(?!ant-)(?:proj-|live-|test-)?[A-Za-z0-9_-]{20,}\b/g,
+          },
+          {
+            name: "GitHub PAT",
+            re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{24,}\b/g,
+          },
+          {
+            name: "Database/Broker URI Credentials",
+            re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):\/\/[^/\s:@]+:[^/\s@]+@[^\s"']+/gi,
+          },
+        ];
+        for (const line of lines) {
+          const lower = line.toLowerCase();
+          if (
+            lower.includes("example") ||
+            lower.includes("placeholder") ||
+            lower.includes("000000") ||
+            lower.includes("<your")
+          ) {
+            continue;
+          }
+          for (const pat of patterns) {
+            const re = new RegExp(pat.re.source, pat.re.flags);
+            if (re.test(line)) {
+              findings.push(pat.name);
+            }
+          }
+        }
+        return findings;
+      }
+
+      function recalculate() {
+        const guidance = document.getElementById("guidanceInput").value || "";
+        const mcpRaw = document.getElementById("mcpInput").value || "";
+
+        const guidanceBytes = new TextEncoder().encode(guidance).length;
+        const guidanceTokens = Math.ceil(guidanceBytes / 4);
+
+        let mcpServersCount = 0;
+        let mcpToolsCount = 0;
+        let mcpSchemaTokens = 0;
+        let misplacedSettingsMcp = false;
+
+        try {
+          const parsed = JSON.parse(mcpRaw);
+          if (parsed && typeof parsed === "object") {
+            if (
+              ("permissions" in parsed || "$comment" in parsed) &&
+              "mcpServers" in parsed
+            ) {
+              misplacedSettingsMcp = true;
+            }
+            const servers = parsed.mcpServers || {};
+            for (const key of Object.keys(servers)) {
+              const srv = servers[key];
+              if (srv && srv.disabled === true) continue;
+              mcpServersCount += 1;
+              const tools = Number(srv?.estimatedTools) || 12;
+              const tok = Number(srv?.estimatedSchemaTokens) || tools * 260;
+              mcpToolsCount += tools;
+              mcpSchemaTokens += tok;
+            }
+          }
+        } catch {
+          mcpSchemaTokens = Math.ceil(
+            new TextEncoder().encode(mcpRaw).length / 4,
+          );
+        }
+
+        const totalPerTurn = guidanceTokens + mcpSchemaTokens;
+        const session50 = totalPerTurn * 50;
+
+        const secrets = [
+          ...detectRealSecrets(guidance),
+          ...detectRealSecrets(mcpRaw),
+        ];
+        const totalFindings = secrets.length + (misplacedSettingsMcp ? 1 : 0);
+
+        const capPercent = Math.min(
+          100,
+          Number(((guidanceBytes / 32768) * 100).toFixed(1)),
+        );
+        const rawCapPercent = Number(
+          ((guidanceBytes / 32768) * 100).toFixed(1),
+        );
+
+        document.getElementById("perTurnTokens").textContent =
+          totalPerTurn.toLocaleString("en-US") + " tok";
+        document.getElementById("sessionTokens").textContent =
+          session50.toLocaleString("en-US") + " tok";
+        document.getElementById("mcpStats").textContent =
+          mcpServersCount + " srv · " + mcpToolsCount + " tools";
+        document.getElementById("securityStats").textContent =
+          totalFindings === 0 ? "0 findings" : totalFindings + " issue(s)";
+
+        document.getElementById("codexCapLabel").textContent =
+          guidanceBytes.toLocaleString("en-US") +
+          " / 32,768 B (" +
+          rawCapPercent +
+          "%)";
+        document.getElementById("codexCapBar").style.width = capPercent + "%";
+
+        let grade = "A";
+        if (secrets.length > 0 || rawCapPercent > 100) grade = "F";
+        else if (misplacedSettingsMcp || totalPerTurn > 15000) grade = "D";
+        else if (totalPerTurn > 8000) grade = "C";
+        else if (totalPerTurn > 3500) grade = "B";
+
+        const badge = document.getElementById("gradeBadge");
+        badge.textContent = "Grade " + grade;
+
+        const tbody = document.getElementById("costTableBody");
+        tbody.innerHTML = MODELS.map((m) => {
+          const turnCost = (totalPerTurn / 1_000_000) * m.inputPerM;
+          const sessCost = (session50 / 1_000_000) * m.inputPerM;
+          return `<tr>
+            <td><strong>${m.name}</strong></td>
+            <td class="num">$${m.inputPerM.toFixed(2)}</td>
+            <td class="num">$${turnCost.toFixed(4)}</td>
+            <td class="num"><strong>$${sessCost.toFixed(2)}</strong></td>
+          </tr>`;
+        }).join("");
+
+        const alertEl = document.getElementById("shieldAlert");
+        if (totalFindings === 0) {
+          alertEl.className = "alert-box ok";
+          alertEl.innerHTML =
+            "✅ <strong>CtxWise Shield &amp; Hygiene Pass:</strong> 0 leaked credentials (placeholder keys accurately ignored) and no misplaced <code>mcpServers</code> in <code>.claude/settings.json</code>.";
+        } else {
+          alertEl.className = "alert-box warn";
+          const items = [];
+          if (secrets.length > 0) {
+            items.push(
+              "Leaked secrets detected: <strong>" +
+                secrets.join(", ") +
+                "</strong>",
+            );
+          }
+          if (misplacedSettingsMcp) {
+            items.push(
+              'Misplaced <code>"mcpServers"</code> inside <code>.claude/settings.json</code> (triggers <code>anthropics/claude-code#105885</code> +141k token retry loop — move to <code>.mcp.json</code>)',
+            );
+          }
+          alertEl.innerHTML =
+            "🚨 <strong>CtxWise Shield Blocked:</strong> " + items.join(" · ");
+        }
+      }
+
+      function loadPreset(name, btnEl) {
+        document
+          .querySelectorAll(".preset-btn")
+          .forEach((b) => b.classList.remove("active"));
+        if (btnEl) btnEl.classList.add("active");
+        const p = PRESETS[name];
+        document.getElementById("guidanceInput").value = p.guidance;
+        document.getElementById("mcpInput").value = p.mcp;
+        recalculate();
+      }
+
+      function copyCmd(text, btn) {
+        navigator.clipboard.writeText(text);
+        const prev = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => {
+          btn.textContent = prev;
+        }, 1400);
+      }
+
+      loadPreset("heavy", document.querySelector(".preset-btn"));
+    </script>
+  </body>
+</html>

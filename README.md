@@ -172,10 +172,12 @@ Add **CtxWise** to `.github/workflows/ci.yml` in 5 lines to automatically block 
 
 ---
 
-## 🧩 Companion Open-Source Tools
+## 🧩 Companion Tools / Ecosystem
 
-- **[`FramY2/mcp-diet`](https://github.com/FramY2/mcp-diet) (`@framy2/mcp-diet`)**: Zero-dependency stdio MCP proxy & runtime firewall — deterministic `tools/list` tree-shaking (`--allow`, `--deny`, `--read-only`, `--max-desc`), oversized `tools/call` crash guard (`--max-result-kb`), and live credential redaction (`--redact-secrets`).
-- **[`FramY2/agent-wire-tap`](https://github.com/FramY2/agent-wire-tap) (`@framy2/agent-wire-tap`)**: Zero-cost local loopback HTTP interceptor & CI contract tester for coding agents (`codex`, `claude`) — captures exact outbound wire payloads and verifies system prompt, tool count, and byte budget contracts with zero API cost.
+- **[`FramY2/mcp-diet`](https://github.com/FramY2/mcp-diet) (`@framy2/mcp-diet`)**: Zero-dependency stdio MCP proxy & runtime firewall — deterministic `tools/list` tree-shaking (`--allow`, `--deny`, `--read-only`, `--max-desc`), oversized `tools/call` crash guard (`--max-result-kb` for `anthropics/claude-code#105703`), and live credential redaction (`--redact-secrets`).
+- **[`FramY2/agent-wire-tap`](https://github.com/FramY2/agent-wire-tap) (`@framy2/agent-wire-tap`)**: Zero-cost local loopback HTTP interceptor & CI contract tester for coding agents (`codex`, `claude`) — captures exact outbound wire payloads and verifies system prompt, tool count, and byte budget contracts with **$0.00 API cost**.
+- **[Interactive Context & MCP Token Tax Calculator](https://framy2.github.io/ctxwise/)**: 100% client-side web app to measure per-turn MCP schema tax, 50-turn session cost across Claude Opus 4.7 / Sonnet 4.6 / GPT-6.1-Sol / GPT-6-Luna, Codex `32 KiB` truncation status, and leaked secrets.
+- **[`ctxwise-vscode` (`editors/vscode`)](editors/vscode)**: Lightweight VS Code & Cursor status-bar extension displaying live workspace token tax, Context Grade (`A`–`F`), Codex `32 KiB` cap percentage, and secret alerts.
 
 ---
 
