@@ -12,6 +12,7 @@ export const WATCHED_RELATIVE_FILES = [
   ".mcp.json",
   ".codex/config.toml",
   ".claude/settings.json",
+  ".claude/settings.local.json",
 ] as const;
 
 export type ContextGrade = "A" | "B" | "C" | "D" | "F";
@@ -35,6 +36,8 @@ export interface WorkspaceContextSummary {
   codexByteCapPercent: number;
   secretCount: number;
   misplacedMcpInSettings: boolean;
+  disableAllHooksInSettings: boolean;
+  unprotectedHookGuardInSettings: boolean;
   grade: ContextGrade;
 }
 
@@ -181,17 +184,60 @@ export function parseMcpServersFromToml(content: string): string[] {
   return [...names];
 }
 
+function hasClaudeSettingsDenyProtection(
+  parsed: Record<string, unknown>,
+): boolean {
+  const perms = parsed["permissions"];
+  if (!perms || typeof perms !== "object" || Array.isArray(perms)) return false;
+  const deny = (perms as Record<string, unknown>)["deny"];
+  if (!Array.isArray(deny)) return false;
+  const strings = deny.filter(
+    (item): item is string => typeof item === "string",
+  );
+  const protectsEdit = strings.some((entry) =>
+    /^Edit\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
+  );
+  const protectsWrite = strings.some((entry) =>
+    /^Write\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
+  );
+  return protectsEdit && protectsWrite;
+}
+
+function hasSettingsHookOrConnectorGuard(
+  parsed: Record<string, unknown>,
+): boolean {
+  const hooks = parsed["hooks"];
+  if (hooks && typeof hooks === "object" && !Array.isArray(hooks)) {
+    const preToolUse = (hooks as Record<string, unknown>)["PreToolUse"];
+    if (Array.isArray(preToolUse) && preToolUse.length > 0) return true;
+  }
+  if (parsed["disableClaudeAiConnectors"] === true) return true;
+  const denied = parsed["deniedMcpServers"];
+  if (Array.isArray(denied) && denied.length > 0) return true;
+  if (denied && typeof denied === "object" && Object.keys(denied).length > 0) {
+    return true;
+  }
+  return false;
+}
+
 export function computeContextGrade(input: {
   totalEstimatedTokens: number;
   codexByteCapPercent: number;
   secretCount: number;
   misplacedMcpInSettings: boolean;
+  disableAllHooksInSettings?: boolean;
+  unprotectedHookGuardInSettings?: boolean;
 }): ContextGrade {
-  if (input.secretCount > 0 || input.codexByteCapPercent > 100) {
+  if (
+    input.secretCount > 0 ||
+    input.codexByteCapPercent > 100 ||
+    input.disableAllHooksInSettings
+  ) {
     return "F";
   }
   if (
     input.misplacedMcpInSettings ||
+    input.unprotectedHookGuardInSettings ||
     input.totalEstimatedTokens > 15_000 ||
     input.codexByteCapPercent > 85
   ) {
@@ -222,6 +268,9 @@ export function analyzeWorkspaceContext(
   let codexInstructionBytes = 0;
   let secretCount = 0;
   let misplacedMcpInSettings = false;
+  let disableAllHooksInSettings = false;
+  let hasHookOrConnectorGuard = false;
+  let protectsClaudeSettings = false;
   const mcpServerNamesSet = new Set<string>();
 
   for (const relPath of WATCHED_RELATIVE_FILES) {
@@ -266,16 +315,30 @@ export function analyzeWorkspaceContext(
       continue;
     }
 
-    if (relPath === ".claude/settings.json") {
+    if (
+      relPath === ".claude/settings.json" ||
+      relPath === ".claude/settings.local.json"
+    ) {
       try {
         const parsed = JSON.parse(content) as unknown;
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          !Array.isArray(parsed) &&
-          "mcpServers" in parsed
-        ) {
-          misplacedMcpInSettings = true;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const rec = parsed as Record<string, unknown>;
+          if (
+            "mcpServers" in rec &&
+            rec["mcpServers"] !== null &&
+            typeof rec["mcpServers"] === "object"
+          ) {
+            misplacedMcpInSettings = true;
+          }
+          if (rec["disableAllHooks"] === true) {
+            disableAllHooksInSettings = true;
+          }
+          if (hasSettingsHookOrConnectorGuard(rec)) {
+            hasHookOrConnectorGuard = true;
+          }
+          if (hasClaudeSettingsDenyProtection(rec)) {
+            protectsClaudeSettings = true;
+          }
         }
       } catch {
         // Ignore parse error while typing
@@ -303,6 +366,8 @@ export function analyzeWorkspaceContext(
     });
   }
 
+  const unprotectedHookGuardInSettings =
+    hasHookOrConnectorGuard && !protectsClaudeSettings;
   const mcpServerNames = [...mcpServerNamesSet].sort();
   const mcpServerCount = mcpServerNames.length;
   const estimatedMcpTokens = mcpServerCount * DEFAULT_TOKENS_PER_MCP_SERVER;
@@ -316,6 +381,8 @@ export function analyzeWorkspaceContext(
     codexByteCapPercent,
     secretCount,
     misplacedMcpInSettings,
+    disableAllHooksInSettings,
+    unprotectedHookGuardInSettings,
   });
 
   return {
@@ -330,6 +397,8 @@ export function analyzeWorkspaceContext(
     codexByteCapPercent,
     secretCount,
     misplacedMcpInSettings,
+    disableAllHooksInSettings,
+    unprotectedHookGuardInSettings,
     grade,
   };
 }
@@ -374,6 +443,16 @@ export function formatStatusBarTooltip(
   if (summary.misplacedMcpInSettings) {
     lines.push(
       `- ⚠️ **Claude Settings Hygiene:** \`"mcpServers"\` found in \`.claude/settings.json\` (move to \`.mcp.json\` to avoid \`#105885\` +141k retry loop)`,
+    );
+  }
+  if (summary.disableAllHooksInSettings) {
+    lines.push(
+      `- 🚨 **Claude Hook Bypass (\`#106225\`):** \`"disableAllHooks": true\` hot-reloads mid-session and neutralizes \`PreToolUse\` MCP guards`,
+    );
+  }
+  if (summary.unprotectedHookGuardInSettings) {
+    lines.push(
+      `- ⚠️ **Unprotected Claude Guard (\`#106225\`):** Add \`"Edit(.claude/**)"\` and \`"Write(.claude/**)"\` to \`permissions.deny\` to block mid-session hook tampering`,
     );
   }
 

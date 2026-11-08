@@ -194,6 +194,59 @@ disabled = true
       }),
     ).toBe("D");
   });
+
+  it("flags disableAllHooks: true (Grade F) and unprotected PreToolUse MCP guards (Grade D) in .claude/settings.local.json (#106225)", () => {
+    const ws = makeTempWorkspace();
+    mkdirSync(join(ws, ".claude"), { recursive: true });
+    writeFileSync(
+      join(ws, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "^mcp__(?!github__|claude-code-remote__)",
+              hooks: [{ type: "command", command: "exit 2" }],
+            },
+          ],
+        },
+      }),
+      "utf8",
+    );
+
+    const unprotectedSummary = analyzeWorkspaceContext(ws);
+    expect(unprotectedSummary.unprotectedHookGuardInSettings).toBe(true);
+    expect(unprotectedSummary.disableAllHooksInSettings).toBe(false);
+    expect(unprotectedSummary.grade).toBe("D");
+    expect(formatStatusBarTooltip(unprotectedSummary)).toContain(
+      "Unprotected Claude Guard (`#106225`)",
+    );
+
+    writeFileSync(
+      join(ws, ".claude", "settings.local.json"),
+      JSON.stringify({ disableAllHooks: true }),
+      "utf8",
+    );
+    const bypassedSummary = analyzeWorkspaceContext(ws);
+    expect(bypassedSummary.disableAllHooksInSettings).toBe(true);
+    expect(bypassedSummary.grade).toBe("F");
+    expect(formatStatusBarTooltip(bypassedSummary)).toContain(
+      "Claude Hook Bypass (`#106225`)",
+    );
+
+    writeFileSync(
+      join(ws, ".claude", "settings.local.json"),
+      JSON.stringify({
+        permissions: {
+          deny: ["Edit(.claude/**)", "Write(.claude/**)"],
+        },
+      }),
+      "utf8",
+    );
+    const hardenedSummary = analyzeWorkspaceContext(ws);
+    expect(hardenedSummary.disableAllHooksInSettings).toBe(false);
+    expect(hardenedSummary.unprotectedHookGuardInSettings).toBe(false);
+    expect(hardenedSummary.grade).toBe("A");
+  });
 });
 
 describe("ctxwise-vscode extension host lifecycle & multi-root support", () => {

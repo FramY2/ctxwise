@@ -236,4 +236,95 @@ describe("Context Shield scanner", () => {
       });
     });
   });
+
+  it("flags disableAllHooks: true and unprotected PreToolUse MCP guard hooks (#106225), and clears guard warning when permissions.deny protects .claude/**", async () => {
+    await withTempDir("ctxwise-shield-hooks-", async (root) => {
+      const projectDir = join(root, "repo");
+      await mkdir(join(projectDir, ".claude"), { recursive: true });
+
+      await writeFile(
+        join(projectDir, ".claude", "settings.json"),
+        JSON.stringify(
+          {
+            hooks: {
+              PreToolUse: [
+                {
+                  matcher: "^mcp__(?!github__|claude-code-remote__)",
+                  hooks: [
+                    {
+                      type: "command",
+                      command:
+                        "echo 'Blocked: MCP connectors are off in this repo.' >&2; exit 2",
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      await writeFile(
+        join(projectDir, ".claude", "settings.local.json"),
+        '{\n  "disableAllHooks": true\n}\n',
+        "utf8",
+      );
+
+      const bypassReport = await runContextShield({ projectRoot: projectDir });
+      expect(bypassReport.status).toBe("vulnerable");
+      expect(bypassReport.summary.high).toBe(1);
+      expect(bypassReport.summary.medium).toBe(1);
+      expect(bypassReport.findings.map((f) => f.id)).toEqual([
+        "claude-settings-unprotected-hook-guard",
+        "claude-settings-disable-all-hooks",
+      ]);
+
+      const disableHookFinding = bypassReport.findings.find(
+        (f) => f.id === "claude-settings-disable-all-hooks",
+      );
+      expect(disableHookFinding?.path).toBe(".claude/settings.local.json");
+      expect(disableHookFinding?.line).toBe(2);
+      expect(disableHookFinding?.message).toContain(
+        "anthropics/claude-code#106225",
+      );
+
+      const sarif = buildShieldSarif(bypassReport, "1.1.1");
+      expect(sarif.runs[0]?.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            ruleId: "claude-settings-disable-all-hooks",
+            level: "error",
+          }),
+          expect.objectContaining({
+            ruleId: "claude-settings-unprotected-hook-guard",
+            level: "warning",
+          }),
+        ]),
+      );
+
+      // Now remove disableAllHooks: true and protect .claude/** via permissions.deny in settings.local.json
+      await writeFile(
+        join(projectDir, ".claude", "settings.local.json"),
+        JSON.stringify(
+          {
+            permissions: {
+              deny: ["Edit(.claude/**)", "Write(.claude/**)"],
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const hardenedReport = await runContextShield({
+        projectRoot: projectDir,
+      });
+      expect(hardenedReport.status).toBe("secure");
+      expect(hardenedReport.findings).toHaveLength(0);
+    });
+  });
 });

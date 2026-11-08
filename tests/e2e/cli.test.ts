@@ -434,5 +434,32 @@ describe("CtxWise CLI", () => {
     };
     expect(sarifJson.version).toBe("2.1.0");
     expect(sarifJson.runs[0]?.tool.driver.name).toBe("CtxWise Shield");
+
+    await mkdir(join(projectRoot, ".claude"), { recursive: true });
+    await writeFile(
+      join(projectRoot, ".claude", "settings.local.json"),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "^mcp__(?!github__)",
+              hooks: [{ type: "command", command: "exit 2" }],
+            },
+          ],
+        },
+      }),
+      "utf8",
+    );
+
+    await expect(
+      execFileAsync(process.execPath, [
+        tsx,
+        cli,
+        "shield",
+        "--project",
+        projectRoot,
+        "--strict",
+      ]),
+    ).rejects.toMatchObject({ code: 2 });
   });
 });

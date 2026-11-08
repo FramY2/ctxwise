@@ -269,6 +269,51 @@ describe("Multi-Agent Audit, Token Diet Compressor, and Sync", () => {
       expect(clientAReport.claudeHygiene.autoMemoryFiles).toEqual([
         "claude-home/projects/-work-clientA-app/memory/MEMORY.md",
       ]);
+
+      // Verify disableAllHooks and PreToolUse MCP guard detection (#106225)
+      await mkdir(join(clientAApp, ".claude"), { recursive: true });
+      await writeFile(
+        join(clientAApp, ".claude", "settings.json"),
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: "^mcp__(?!github__|claude-code-remote__)",
+                hooks: [{ type: "command", command: "exit 2" }],
+              },
+            ],
+          },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(clientAApp, ".claude", "settings.local.json"),
+        JSON.stringify({
+          disableAllHooks: true,
+        }),
+        "utf8",
+      );
+
+      const hookBypassReport = await auditMultiAgentSurface({
+        projectRoot: clientAApp,
+      });
+      expect(hookBypassReport.claudeHygiene.hasPreToolUseMcpGuard).toBe(true);
+      expect(hookBypassReport.claudeHygiene.protectsClaudeSettingsInDeny).toBe(
+        false,
+      );
+      expect(hookBypassReport.claudeHygiene.disableAllHooksPaths).toEqual([
+        "project/.claude/settings.local.json",
+      ]);
+      expect(
+        hookBypassReport.recommendations.some((r) =>
+          r.includes('"disableAllHooks": true found in'),
+        ),
+      ).toBe(true);
+      expect(
+        hookBypassReport.recommendations.some((r) =>
+          r.includes('Add "Edit(.claude/**)" and "Write(.claude/**)"'),
+        ),
+      ).toBe(true);
     });
   });
 });

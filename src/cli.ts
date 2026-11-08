@@ -882,6 +882,11 @@ program
     "Exit with status 2 when high or critical security risks are found",
     false,
   )
+  .option(
+    "--strict",
+    "Exit with status 2 when any security or config-hygiene finding (including medium/low warnings) is detected",
+    false,
+  )
   .action(async (options) => {
     const home = codexHome();
     const scope = await commandProjectScope(home, options.project);
@@ -905,8 +910,9 @@ program
     if (options.json) printJson(report);
     else process.stdout.write(renderShieldReport(report));
     if (
-      options.failOnRisk &&
-      (report.summary.critical > 0 || report.summary.high > 0)
+      (options.failOnRisk &&
+        (report.summary.critical > 0 || report.summary.high > 0)) ||
+      (options.strict && report.summary.total > 0)
     ) {
       process.exitCode = 2;
     }

@@ -5,6 +5,15 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-08
+
+### Added
+
+- **Claude Code Mid-Session Hook Bypass & Guard Protection Audit (`ctxwise shield`, `ctxwise agents`, & VS Code Extension)**:
+  - Flags `"disableAllHooks": true` (`claude-settings-disable-all-hooks`, `severity: "high"`) in `.claude/settings.local.json`, `.claude/settings.json`, and `~/.claude/settings.json`, catching mid-session hot-reload neutralization of `PreToolUse` MCP connector guards (`anthropics/claude-code#106225`).
+  - Detects `PreToolUse` MCP guard hooks or connector restrictions (`disableClaudeAiConnectors` / `deniedMcpServers`) that are not protected by `"Edit(.claude/**)"` and `"Write(.claude/**)"` in `permissions.deny` (`claude-settings-unprotected-hook-guard`), with cross-file resolution across `.claude/settings.json` and `.claude/settings.local.json`.
+  - Adds `--strict` to `ctxwise shield` (`ctxwise shield --strict`) so CI gates fail on any security or config-hygiene finding (including medium/low warnings) alongside `--fail-on-risk` and `--sarif`.
+
 ## [1.1.0] - 2026-10-31
 
 ### Added

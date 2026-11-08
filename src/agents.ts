@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { expandHomePath } from "./mcp-xray.js";
+import { hasClaudeSettingsWriteDeny, hasPreToolUseHook } from "./shield.js";
 
 export type SupportedAgentId = "claude" | "codex" | "cursor";
 
@@ -33,6 +34,9 @@ export interface ClaudeSettingsHygiene {
   misplacedMcpServersPaths: string[];
   disableClaudeAiConnectors: boolean;
   deniedMcpServers: string[];
+  disableAllHooksPaths: string[];
+  hasPreToolUseMcpGuard: boolean;
+  protectsClaudeSettingsInDeny: boolean;
   autoMemoryFiles: string[];
 }
 
@@ -201,6 +205,9 @@ export async function auditMultiAgentSurface(options: {
     misplacedMcpServersPaths: [],
     disableClaudeAiConnectors: false,
     deniedMcpServers: [],
+    disableAllHooksPaths: [],
+    hasPreToolUseMcpGuard: false,
+    protectsClaudeSettingsInDeny: false,
     autoMemoryFiles: [],
   };
 
@@ -241,6 +248,9 @@ export async function auditMultiAgentSurface(options: {
     claudeHygiene.settingsFiles.push(displayPath);
     try {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return;
+      }
       if (
         parsed.mcpServers !== undefined &&
         parsed.mcpServers !== null &&
@@ -257,6 +267,15 @@ export async function auditMultiAgentSurface(options: {
         if (!claudeHygiene.deniedMcpServers.includes(denied)) {
           claudeHygiene.deniedMcpServers.push(denied);
         }
+      }
+      if (parsed.disableAllHooks === true) {
+        claudeHygiene.disableAllHooksPaths.push(displayPath);
+      }
+      if (hasPreToolUseHook(parsed)) {
+        claudeHygiene.hasPreToolUseMcpGuard = true;
+      }
+      if (hasClaudeSettingsWriteDeny(parsed)) {
+        claudeHygiene.protectsClaudeSettingsInDeny = true;
       }
     } catch {
       // Malformed JSON handled by shield/audit
@@ -498,13 +517,30 @@ export async function auditMultiAgentSurface(options: {
       `"mcpServers" found in ${misplacedPath}. Claude Code's update-config validator rejects "mcpServers" inside settings.json (causing +141k-token retry loops); move MCP server definitions to .mcp.json or ~/.claude.json.`,
     );
   }
+  for (const hooksDisabledPath of claudeHygiene.disableAllHooksPaths) {
+    recommendations.push(
+      `"disableAllHooks": true found in ${hooksDisabledPath}. Claude Code hot-reloads settings mid-session (anthropics/claude-code#106225), which immediately neutralizes PreToolUse MCP connector guards; remove "disableAllHooks": true and protect .claude/** in permissions.deny.`,
+    );
+  }
+  if (
+    claudeHygiene.settingsFiles.length > 0 &&
+    (claudeHygiene.hasPreToolUseMcpGuard ||
+      claudeHygiene.disableClaudeAiConnectors ||
+      claudeHygiene.deniedMcpServers.length > 0) &&
+    !claudeHygiene.protectsClaudeSettingsInDeny
+  ) {
+    recommendations.push(
+      `Add "Edit(.claude/**)" and "Write(.claude/**)" to permissions.deny in .claude/settings.json so prompt injection or auto-mode agents cannot hot-reload "disableAllHooks": true or strip PreToolUse MCP guards mid-session (anthropics/claude-code#106225).`,
+    );
+  }
   if (
     claudeHygiene.settingsFiles.length > 0 &&
     !claudeHygiene.disableClaudeAiConnectors &&
-    claudeHygiene.deniedMcpServers.length === 0
+    claudeHygiene.deniedMcpServers.length === 0 &&
+    !claudeHygiene.hasPreToolUseMcpGuard
   ) {
     recommendations.push(
-      `Consider setting "disableClaudeAiConnectors": true or configuring "deniedMcpServers" in .claude/settings.json to prevent unrequested cloud connectors from injecting tool schemas.`,
+      `Consider setting "disableClaudeAiConnectors": true or configuring "deniedMcpServers" in .claude/settings.json for local CLI sessions, plus a PreToolUse "^mcp__" matcher hook and permissions.deny ("Edit(.claude/**)", "Write(.claude/**)") for Claude Code Cloud (claude.ai/code) sessions (anthropics/claude-code#106225).`,
     );
   }
   if (parityStatus === "diverged") {

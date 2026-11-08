@@ -2,7 +2,7 @@
   "name": "ctxwise-vscode",
   "displayName": "CtxWise — AI Context Firewall & MCP Token Profiler",
   "description": "Live status-bar token profiler, Codex 32 KiB byte-cap monitor, MCP schema tax estimator, and secret shield for Claude Code, OpenAI Codex, and Cursor.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "FramY2",
   "license": "Apache-2.0",
   "repository": {

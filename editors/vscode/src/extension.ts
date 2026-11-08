@@ -102,7 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(statusBarItem);
 
   const watcher = vscode.workspace.createFileSystemWatcher(
-    "**/{CLAUDE.md,AGENTS.md,AGENTS.override.md,.cursorrules,.mcp.json,.codex/config.toml,.claude/settings.json}",
+    "**/{CLAUDE.md,AGENTS.md,AGENTS.override.md,.cursorrules,.mcp.json,.codex/config.toml,.claude/settings.json,.claude/settings.local.json}",
   );
   context.subscriptions.push(
     watcher,

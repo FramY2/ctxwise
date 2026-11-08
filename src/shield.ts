@@ -192,6 +192,58 @@ function isPlaceholderSecret(value: string): boolean {
   );
 }
 
+function extractPermissionsDenyList(parsed: Record<string, unknown>): string[] {
+  const perms = parsed.permissions;
+  if (!perms || typeof perms !== "object" || Array.isArray(perms)) return [];
+  const deny = (perms as Record<string, unknown>).deny;
+  if (!Array.isArray(deny)) return [];
+  return deny.filter((item): item is string => typeof item === "string");
+}
+
+export function hasClaudeSettingsWriteDeny(
+  parsed: Record<string, unknown>,
+): boolean {
+  const denyList = extractPermissionsDenyList(parsed);
+  const protectsEdit = denyList.some((entry) =>
+    /^Edit\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
+  );
+  const protectsWrite = denyList.some((entry) =>
+    /^Write\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
+  );
+  return protectsEdit && protectsWrite;
+}
+
+export function hasPreToolUseHook(parsed: Record<string, unknown>): boolean {
+  const hooks = parsed.hooks;
+  if (!hooks || typeof hooks !== "object" || Array.isArray(hooks)) return false;
+  const preToolUse = (hooks as Record<string, unknown>).PreToolUse;
+  return Array.isArray(preToolUse) && preToolUse.length > 0;
+}
+
+function hasDeniedMcpServers(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>).length > 0;
+  }
+  return false;
+}
+
+export function hasConnectorOrHookGuard(
+  parsed: Record<string, unknown>,
+): boolean {
+  return (
+    hasPreToolUseHook(parsed) ||
+    parsed.disableClaudeAiConnectors === true ||
+    hasDeniedMcpServers(parsed.deniedMcpServers)
+  );
+}
+
+function isClaudeSettingsPath(normalizedPath: string): boolean {
+  return /(?:^|\/)(?:\.claude\/|claude-home\/(?:\.claude\/)?)?settings(?:\.local)?\.json$/i.test(
+    normalizedPath,
+  );
+}
+
 export function scanContentWithShield(
   content: string,
   displayPath: string,
@@ -282,34 +334,73 @@ export function scanContentWithShield(
     });
   }
 
-  // Check Claude Code settings.json for misplaced "mcpServers" block (anthropics/claude-code#105885)
+  // Check Claude Code settings.json / settings.local.json hygiene and mid-session hook bypasses (#105885, #106225)
   const normalizedDisplayPath = displayPath.replaceAll("\\", "/");
-  if (
-    /(?:^|\/)(?:\.claude\/|claude-home\/(?:\.claude\/)?)?settings(?:\.local)?\.json$/i.test(
-      normalizedDisplayPath,
-    )
-  ) {
+  if (isClaudeSettingsPath(normalizedDisplayPath)) {
     try {
       const parsed = JSON.parse(content) as Record<string, unknown>;
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        parsed.mcpServers !== undefined &&
-        parsed.mcpServers !== null &&
-        typeof parsed.mcpServers === "object"
-      ) {
-        const lineIdx = lines.findIndex((l) => /"mcpServers"\s*:/.test(l));
-        const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
-        findings.push({
-          id: "claude-settings-misplaced-mcp-servers",
-          category: "config-hygiene",
-          severity: "medium",
-          path: displayPath,
-          line: lineNumber,
-          message:
-            '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation (causing +141k-token update-config retry loops); move MCP servers to .mcp.json or ~/.claude.json.',
-          snippet: maskSnippet(lines[lineNumber - 1] ?? '"mcpServers": {}'),
-        });
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        if (
+          parsed.mcpServers !== undefined &&
+          parsed.mcpServers !== null &&
+          typeof parsed.mcpServers === "object"
+        ) {
+          const lineIdx = lines.findIndex((l) => /"mcpServers"\s*:/.test(l));
+          const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
+          findings.push({
+            id: "claude-settings-misplaced-mcp-servers",
+            category: "config-hygiene",
+            severity: "medium",
+            path: displayPath,
+            line: lineNumber,
+            message:
+              '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation (causing +141k-token update-config retry loops); move MCP servers to .mcp.json or ~/.claude.json.',
+            snippet: maskSnippet(lines[lineNumber - 1] ?? '"mcpServers": {}'),
+          });
+        }
+
+        if (parsed.disableAllHooks === true) {
+          const lineIdx = lines.findIndex((l) =>
+            /"disableAllHooks"\s*:/.test(l),
+          );
+          const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
+          findings.push({
+            id: "claude-settings-disable-all-hooks",
+            category: "config-hygiene",
+            severity: "high",
+            path: displayPath,
+            line: lineNumber,
+            message:
+              '"disableAllHooks": true hot-reloads mid-session in Claude Code and neutralizes PreToolUse MCP connector guards (anthropics/claude-code#106225); remove "disableAllHooks": true and protect .claude/** in permissions.deny.',
+            snippet: maskSnippet(
+              lines[lineNumber - 1] ?? '"disableAllHooks": true',
+            ),
+          });
+        }
+
+        if (
+          hasConnectorOrHookGuard(parsed) &&
+          !hasClaudeSettingsWriteDeny(parsed)
+        ) {
+          const guardLineIdx = lines.findIndex((l) =>
+            /"(?:PreToolUse|hooks|disableClaudeAiConnectors|deniedMcpServers)"\s*:/.test(
+              l,
+            ),
+          );
+          const guardLineNumber = guardLineIdx >= 0 ? guardLineIdx + 1 : 1;
+          findings.push({
+            id: "claude-settings-unprotected-hook-guard",
+            category: "config-hygiene",
+            severity: "medium",
+            path: displayPath,
+            line: guardLineNumber,
+            message:
+              'PreToolUse MCP guard hook or connector restriction in Claude settings is not protected by permissions.deny against mid-session hot-reload tampering (anthropics/claude-code#106225); add "Edit(.claude/**)" and "Write(.claude/**)" to permissions.deny (and for claude.ai/code cloud sessions where disableClaudeAiConnectors/deniedMcpServers are ignored by the host, enforce a PreToolUse "^mcp__" matcher hook plus read-only settings).',
+            snippet: maskSnippet(
+              lines[guardLineNumber - 1] ?? '"PreToolUse": [...]',
+            ),
+          });
+        }
       }
     } catch {
       // Ignore malformed JSON here
@@ -374,31 +465,62 @@ export async function runContextShield(options: {
 }): Promise<ShieldReport> {
   const root = resolve(options.projectRoot);
   const candidateFiles = (await walkContextFiles(root, 5)).sort();
-  const findings: ShieldFinding[] = [];
+  let findings: ShieldFinding[] = [];
   let scannedCount = candidateFiles.length;
+  let projectProtectsClaudeSettings = false;
 
   for (const filePath of candidateFiles) {
     const content = await readFile(filePath, "utf8").catch(() => "");
     if (!content) continue;
     const relPath = relative(root, filePath).replaceAll("\\", "/");
+    if (isClaudeSettingsPath(relPath)) {
+      try {
+        const parsed = JSON.parse(content) as Record<string, unknown>;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed) &&
+          hasClaudeSettingsWriteDeny(parsed)
+        ) {
+          projectProtectsClaudeSettings = true;
+        }
+      } catch {
+        // Ignore malformed JSON
+      }
+    }
     findings.push(...scanContentWithShield(content, relPath));
+  }
+
+  if (projectProtectsClaudeSettings) {
+    findings = findings.filter(
+      (f) =>
+        !(
+          f.id === "claude-settings-unprotected-hook-guard" &&
+          !f.path.startsWith("claude-home/")
+        ),
+    );
   }
 
   if (options.claudeHome) {
     const cHome = expandHomePath(options.claudeHome);
-    const homeSettingsCandidates = [join(cHome, "settings.json")];
+    const homeDirCandidates = [cHome];
     if (basename(cHome) !== ".claude") {
-      homeSettingsCandidates.push(join(cHome, ".claude", "settings.json"));
+      homeDirCandidates.push(join(cHome, ".claude"));
     }
-    for (const settingsPath of homeSettingsCandidates) {
-      if (candidateFiles.includes(settingsPath)) continue;
-      if (!(await exists(settingsPath))) continue;
-      const content = await readFile(settingsPath, "utf8").catch(() => "");
-      if (!content) continue;
-      scannedCount += 1;
-      const rel = relative(cHome, settingsPath).replaceAll("\\", "/");
-      findings.push(...scanContentWithShield(content, `claude-home/${rel}`));
-      break;
+    for (const dirCandidate of homeDirCandidates) {
+      let matchedDir = false;
+      for (const fileName of ["settings.json", "settings.local.json"]) {
+        const settingsPath = join(dirCandidate, fileName);
+        if (candidateFiles.includes(settingsPath)) continue;
+        if (!(await exists(settingsPath))) continue;
+        const content = await readFile(settingsPath, "utf8").catch(() => "");
+        if (!content) continue;
+        matchedDir = true;
+        scannedCount += 1;
+        const rel = relative(cHome, settingsPath).replaceAll("\\", "/");
+        findings.push(...scanContentWithShield(content, `claude-home/${rel}`));
+      }
+      if (matchedDir) break;
     }
   }
 
@@ -468,6 +590,20 @@ export function buildShieldSarif(
       severity: "medium",
       message:
         '"mcpServers" inside Claude settings.json is rejected by Claude Code schema validation; move MCP servers to .mcp.json or ~/.claude.json.',
+    },
+    {
+      id: "claude-settings-disable-all-hooks",
+      category: "config-hygiene",
+      severity: "high",
+      message:
+        '"disableAllHooks": true hot-reloads mid-session in Claude Code and neutralizes PreToolUse MCP connector guards (anthropics/claude-code#106225); remove "disableAllHooks": true and protect .claude/** in permissions.deny.',
+    },
+    {
+      id: "claude-settings-unprotected-hook-guard",
+      category: "config-hygiene",
+      severity: "medium",
+      message:
+        'PreToolUse MCP guard hook or connector restriction in Claude settings is not protected by permissions.deny against mid-session hot-reload tampering (anthropics/claude-code#106225); add "Edit(.claude/**)" and "Write(.claude/**)" to permissions.deny.',
     },
   ];
 
