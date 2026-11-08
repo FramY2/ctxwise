@@ -474,7 +474,7 @@
           <div class="card">
             <h2>
               <a href="https://github.com/FramY2/ctxwise">@framy2/ctxwise</a>
-              <span class="pill">v1.1.0</span>
+              <span class="pill">v1.1.1</span>
             </h2>
             <p style="color: var(--muted); font-size: 0.9rem">
               Static AI Context Firewall, MCP Schema Tree-Shaker
@@ -784,6 +784,7 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         "permissions",
         "env",
         "hooks",
+        "disableAllHooks",
         "model",
         "statusLine",
         "includeCoAuthoredBy",
@@ -860,6 +861,7 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         let mcpToolsCount = 0;
         let mcpSchemaTokens = 0;
         let misplacedSettingsMcp = false;
+        let disableAllHooksInSettings = false;
 
         try {
           const parsed = JSON.parse(mcpRaw);
@@ -869,6 +871,9 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               CLAUDE_SETTINGS_KEYS.some((k) => k in parsed)
             ) {
               misplacedSettingsMcp = true;
+            }
+            if (parsed.disableAllHooks === true) {
+              disableAllHooksInSettings = true;
             }
             const servers = parsed.mcpServers || {};
             if (
@@ -946,7 +951,10 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           ...detectRealSecrets(guidance),
           ...detectRealSecrets(mcpRaw),
         ];
-        const totalFindings = secrets.length + (misplacedSettingsMcp ? 1 : 0);
+        const totalFindings =
+          secrets.length +
+          (misplacedSettingsMcp ? 1 : 0) +
+          (disableAllHooksInSettings ? 1 : 0);
 
         const capPercent = Math.min(
           100,
@@ -980,7 +988,12 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               : "linear-gradient(90deg, var(--green), var(--cyan))";
 
         let grade = "A";
-        if (secrets.length > 0 || rawCapPercent > 100) grade = "F";
+        if (
+          secrets.length > 0 ||
+          rawCapPercent > 100 ||
+          disableAllHooksInSettings
+        )
+          grade = "F";
         else if (
           misplacedSettingsMcp ||
           totalPerTurn > 15000 ||
@@ -1023,6 +1036,11 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           if (misplacedSettingsMcp) {
             items.push(
               'Misplaced <code>"mcpServers"</code> inside <code>.claude/settings.json</code> (triggers <code>anthropics/claude-code#105885</code> +141k token retry loop — move to <code>.mcp.json</code>)',
+            );
+          }
+          if (disableAllHooksInSettings) {
+            items.push(
+              '<code>"disableAllHooks": true</code> in Claude settings hot-reloads mid-session and neutralizes <code>PreToolUse</code> MCP guards (<code>anthropics/claude-code#106225</code>)',
             );
           }
           alertEl.innerHTML =

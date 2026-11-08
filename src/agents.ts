@@ -3,7 +3,11 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { expandHomePath } from "./mcp-xray.js";
-import { hasClaudeSettingsWriteDeny, hasPreToolUseHook } from "./shield.js";
+import {
+  denyEntriesProtectClaudeSettings,
+  extractPermissionsDenyList,
+  hasPreToolUseHook,
+} from "./shield.js";
 
 export type SupportedAgentId = "claude" | "codex" | "cursor";
 
@@ -238,6 +242,8 @@ export async function auditMultiAgentSurface(options: {
     });
   };
 
+  const combinedDenyEntries: string[] = [];
+
   const inspectClaudeSettingsFile = async (
     fullPath: string,
     displayPath: string,
@@ -274,9 +280,9 @@ export async function auditMultiAgentSurface(options: {
       if (hasPreToolUseHook(parsed)) {
         claudeHygiene.hasPreToolUseMcpGuard = true;
       }
-      if (hasClaudeSettingsWriteDeny(parsed)) {
-        claudeHygiene.protectsClaudeSettingsInDeny = true;
-      }
+      combinedDenyEntries.push(...extractPermissionsDenyList(parsed));
+      claudeHygiene.protectsClaudeSettingsInDeny =
+        denyEntriesProtectClaudeSettings(combinedDenyEntries);
     } catch {
       // Malformed JSON handled by shield/audit
     }
@@ -330,6 +336,7 @@ export async function auditMultiAgentSurface(options: {
       );
     } else if (
       basename(cHome) !== ".claude" &&
+      resolve(cHome) !== root &&
       (await exists(nestedClaudeMd))
     ) {
       await addFile(
@@ -342,21 +349,32 @@ export async function auditMultiAgentSurface(options: {
       );
     }
 
-    // Inspect user-level Claude settings.json
+    // Inspect user-level Claude settings.json and settings.local.json
     const directSettings = join(cHome, "settings.json");
+    const directLocalSettings = join(cHome, "settings.local.json");
     const nestedSettings = join(cHome, ".claude", "settings.json");
-    if (await exists(directSettings)) {
+    const nestedLocalSettings = join(cHome, ".claude", "settings.local.json");
+    if ((await exists(directSettings)) || (await exists(directLocalSettings))) {
       await inspectClaudeSettingsFile(
         directSettings,
         "claude-home/settings.json",
       );
+      await inspectClaudeSettingsFile(
+        directLocalSettings,
+        "claude-home/settings.local.json",
+      );
     } else if (
       basename(cHome) !== ".claude" &&
-      (await exists(nestedSettings))
+      resolve(cHome) !== root &&
+      ((await exists(nestedSettings)) || (await exists(nestedLocalSettings)))
     ) {
       await inspectClaudeSettingsFile(
         nestedSettings,
         "claude-home/.claude/settings.json",
+      );
+      await inspectClaudeSettingsFile(
+        nestedLocalSettings,
+        "claude-home/.claude/settings.local.json",
       );
     }
 

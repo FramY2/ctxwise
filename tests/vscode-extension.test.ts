@@ -233,6 +233,21 @@ disabled = true
       "Claude Hook Bypass (`#106225`)",
     );
 
+    // Narrower rule (.claude/commands/**) still leaves settings.local.json unprotected (Grade D)
+    writeFileSync(
+      join(ws, ".claude", "settings.local.json"),
+      JSON.stringify({
+        permissions: {
+          deny: ["Edit(.claude/commands/**)", "Write(.claude/commands/**)"],
+        },
+      }),
+      "utf8",
+    );
+    const narrowSummary = analyzeWorkspaceContext(ws);
+    expect(narrowSummary.disableAllHooksInSettings).toBe(false);
+    expect(narrowSummary.unprotectedHookGuardInSettings).toBe(true);
+    expect(narrowSummary.grade).toBe("D");
+
     writeFileSync(
       join(ws, ".claude", "settings.local.json"),
       JSON.stringify({
@@ -527,5 +542,14 @@ enabled = false
 `;
     recalculate();
     expect(getEl("mcpStats").textContent).toBe("1 srv · 26 tools");
+
+    // 6. Test disableAllHooks: true in Claude settings (#106225)
+    getEl("mcpInput").value = JSON.stringify({
+      disableAllHooks: true,
+    });
+    recalculate();
+    expect(getEl("securityStats").textContent).toBe("1 issue(s)");
+    expect(getEl("gradeBadge").textContent).toBe("Grade F");
+    expect(getEl("shieldAlert").innerHTML).toContain("106225");
   });
 });

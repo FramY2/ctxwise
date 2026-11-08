@@ -192,7 +192,9 @@ function isPlaceholderSecret(value: string): boolean {
   );
 }
 
-function extractPermissionsDenyList(parsed: Record<string, unknown>): string[] {
+export function extractPermissionsDenyList(
+  parsed: Record<string, unknown>,
+): string[] {
   const perms = parsed.permissions;
   if (!perms || typeof perms !== "object" || Array.isArray(perms)) return [];
   const deny = (perms as Record<string, unknown>).deny;
@@ -200,17 +202,73 @@ function extractPermissionsDenyList(parsed: Record<string, unknown>): string[] {
   return deny.filter((item): item is string => typeof item === "string");
 }
 
+export function denyEntriesProtectClaudeSettings(
+  denyEntries: readonly string[],
+): boolean {
+  const checkTool = (tool: "Edit" | "Write"): boolean => {
+    let coversSettingsJson = false;
+    let coversSettingsLocalJson = false;
+    const bareRe = new RegExp(`^${tool}$`, "i");
+    const callRe = new RegExp(`^${tool}\\(\\s*(.*?)\\s*\\)$`, "i");
+
+    for (const raw of denyEntries) {
+      const trimmed = raw.trim();
+      if (bareRe.test(trimmed)) {
+        return true;
+      }
+      const match = callRe.exec(trimmed);
+      if (!match?.[1]) continue;
+      const pattern = match[1]
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replaceAll("\\", "/");
+      if (
+        pattern === "*" ||
+        pattern === "**" ||
+        pattern === "**/*" ||
+        pattern === "." ||
+        pattern === "./*" ||
+        pattern === "./**" ||
+        pattern === "/*" ||
+        pattern === "/**"
+      ) {
+        return true;
+      }
+      const rel = pattern.replace(/^(?:\.\/|\/)?(?:\*\*\/)?/, "").toLowerCase();
+      if (
+        rel === ".claude" ||
+        rel === ".claude/" ||
+        rel === ".claude/*" ||
+        rel === ".claude/**" ||
+        rel === ".claude/**/*" ||
+        rel === ".claude/*.json" ||
+        rel === ".claude/**/*.json" ||
+        /^\.claude\/settings(?:\*|\.\*)/.test(rel)
+      ) {
+        return true;
+      }
+      if (rel === ".claude/settings.json") {
+        coversSettingsJson = true;
+      }
+      if (
+        rel === ".claude/settings.local.json" ||
+        rel === ".claude/*.local.json" ||
+        rel === ".claude/settings.local*"
+      ) {
+        coversSettingsLocalJson = true;
+      }
+    }
+
+    return coversSettingsJson && coversSettingsLocalJson;
+  };
+
+  return checkTool("Edit") && checkTool("Write");
+}
+
 export function hasClaudeSettingsWriteDeny(
   parsed: Record<string, unknown>,
 ): boolean {
-  const denyList = extractPermissionsDenyList(parsed);
-  const protectsEdit = denyList.some((entry) =>
-    /^Edit\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
-  );
-  const protectsWrite = denyList.some((entry) =>
-    /^Write\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
-  );
-  return protectsEdit && protectsWrite;
+  return denyEntriesProtectClaudeSettings(extractPermissionsDenyList(parsed));
 }
 
 export function hasPreToolUseHook(parsed: Record<string, unknown>): boolean {
@@ -239,8 +297,12 @@ export function hasConnectorOrHookGuard(
 }
 
 function isClaudeSettingsPath(normalizedPath: string): boolean {
-  return /(?:^|\/)(?:\.claude\/|claude-home\/(?:\.claude\/)?)?settings(?:\.local)?\.json$/i.test(
-    normalizedPath,
+  return (
+    /^settings(?:\.local)?\.json$/i.test(normalizedPath) ||
+    /^claude-home\/(?:\.claude\/)?settings(?:\.local)?\.json$/i.test(
+      normalizedPath,
+    ) ||
+    /(?:^|\/)\.claude\/settings(?:\.local)?\.json$/i.test(normalizedPath)
   );
 }
 
@@ -467,7 +529,7 @@ export async function runContextShield(options: {
   const candidateFiles = (await walkContextFiles(root, 5)).sort();
   let findings: ShieldFinding[] = [];
   let scannedCount = candidateFiles.length;
-  let projectProtectsClaudeSettings = false;
+  const projectDenyEntries: string[] = [];
 
   for (const filePath of candidateFiles) {
     const content = await readFile(filePath, "utf8").catch(() => "");
@@ -476,13 +538,8 @@ export async function runContextShield(options: {
     if (isClaudeSettingsPath(relPath)) {
       try {
         const parsed = JSON.parse(content) as Record<string, unknown>;
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          !Array.isArray(parsed) &&
-          hasClaudeSettingsWriteDeny(parsed)
-        ) {
-          projectProtectsClaudeSettings = true;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          projectDenyEntries.push(...extractPermissionsDenyList(parsed));
         }
       } catch {
         // Ignore malformed JSON
@@ -491,7 +548,7 @@ export async function runContextShield(options: {
     findings.push(...scanContentWithShield(content, relPath));
   }
 
-  if (projectProtectsClaudeSettings) {
+  if (denyEntriesProtectClaudeSettings(projectDenyEntries)) {
     findings = findings.filter(
       (f) =>
         !(
@@ -507,6 +564,7 @@ export async function runContextShield(options: {
     if (basename(cHome) !== ".claude") {
       homeDirCandidates.push(join(cHome, ".claude"));
     }
+    const homeDenyEntries: string[] = [];
     for (const dirCandidate of homeDirCandidates) {
       let matchedDir = false;
       for (const fileName of ["settings.json", "settings.local.json"]) {
@@ -517,10 +575,42 @@ export async function runContextShield(options: {
         if (!content) continue;
         matchedDir = true;
         scannedCount += 1;
+        try {
+          const parsed = JSON.parse(content) as Record<string, unknown>;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            homeDenyEntries.push(...extractPermissionsDenyList(parsed));
+          }
+        } catch {
+          // Ignore malformed JSON
+        }
         const rel = relative(cHome, settingsPath).replaceAll("\\", "/");
         findings.push(...scanContentWithShield(content, `claude-home/${rel}`));
       }
       if (matchedDir) break;
+    }
+
+    if (denyEntriesProtectClaudeSettings(homeDenyEntries)) {
+      findings = findings.filter(
+        (f) =>
+          !(
+            f.id === "claude-settings-unprotected-hook-guard" &&
+            f.path.startsWith("claude-home/")
+          ),
+      );
+    }
+    if (
+      denyEntriesProtectClaudeSettings([
+        ...projectDenyEntries,
+        ...homeDenyEntries,
+      ])
+    ) {
+      findings = findings.filter(
+        (f) =>
+          !(
+            f.id === "claude-settings-unprotected-hook-guard" &&
+            !f.path.startsWith("claude-home/")
+          ),
+      );
     }
   }
 

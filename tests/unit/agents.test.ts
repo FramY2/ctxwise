@@ -309,10 +309,55 @@ describe("Multi-Agent Audit, Token Diet Compressor, and Sync", () => {
           r.includes('"disableAllHooks": true found in'),
         ),
       ).toBe(true);
+      // Narrower rule (.claude/commands/**) must not satisfy protectsClaudeSettingsInDeny
+      await writeFile(
+        join(clientAApp, ".claude", "settings.local.json"),
+        JSON.stringify({
+          permissions: {
+            deny: ["Edit(.claude/commands/**)", "Write(.claude/commands/**)"],
+          },
+        }),
+        "utf8",
+      );
+      const narrowAgentReport = await auditMultiAgentSurface({
+        projectRoot: clientAApp,
+      });
+      expect(narrowAgentReport.claudeHygiene.protectsClaudeSettingsInDeny).toBe(
+        false,
+      );
+
+      // Split Edit/Write rules across settings.json and settings.local.json satisfy protectsClaudeSettingsInDeny
+      await writeFile(
+        join(clientAApp, ".claude", "settings.json"),
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: "^mcp__(?!github__|claude-code-remote__)",
+                hooks: [{ type: "command", command: "exit 2" }],
+              },
+            ],
+          },
+          permissions: {
+            deny: ["Edit(.claude/**)"],
+          },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(clientAApp, ".claude", "settings.local.json"),
+        JSON.stringify({
+          permissions: {
+            deny: ["Write(.claude/**)"],
+          },
+        }),
+        "utf8",
+      );
+      const splitHardenedReport = await auditMultiAgentSurface({
+        projectRoot: clientAApp,
+      });
       expect(
-        hookBypassReport.recommendations.some((r) =>
-          r.includes('Add "Edit(.claude/**)" and "Write(.claude/**)"'),
-        ),
+        splitHardenedReport.claudeHygiene.protectsClaudeSettingsInDeny,
       ).toBe(true);
     });
   });

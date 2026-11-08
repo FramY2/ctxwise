@@ -184,23 +184,75 @@ export function parseMcpServersFromToml(content: string): string[] {
   return [...names];
 }
 
-function hasClaudeSettingsDenyProtection(
-  parsed: Record<string, unknown>,
-): boolean {
+function extractPermissionsDenyList(parsed: Record<string, unknown>): string[] {
   const perms = parsed["permissions"];
-  if (!perms || typeof perms !== "object" || Array.isArray(perms)) return false;
+  if (!perms || typeof perms !== "object" || Array.isArray(perms)) return [];
   const deny = (perms as Record<string, unknown>)["deny"];
-  if (!Array.isArray(deny)) return false;
-  const strings = deny.filter(
-    (item): item is string => typeof item === "string",
-  );
-  const protectsEdit = strings.some((entry) =>
-    /^Edit\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
-  );
-  const protectsWrite = strings.some((entry) =>
-    /^Write\(\s*\/?(?:\*\*\/)?\.claude(?:\/|\*|\))/i.test(entry.trim()),
-  );
-  return protectsEdit && protectsWrite;
+  if (!Array.isArray(deny)) return [];
+  return deny.filter((item): item is string => typeof item === "string");
+}
+
+function denyEntriesProtectClaudeSettings(
+  denyEntries: readonly string[],
+): boolean {
+  const checkTool = (tool: "Edit" | "Write"): boolean => {
+    let coversSettingsJson = false;
+    let coversSettingsLocalJson = false;
+    const bareRe = new RegExp(`^${tool}$`, "i");
+    const callRe = new RegExp(`^${tool}\\(\\s*(.*?)\\s*\\)$`, "i");
+
+    for (const raw of denyEntries) {
+      const trimmed = raw.trim();
+      if (bareRe.test(trimmed)) {
+        return true;
+      }
+      const match = callRe.exec(trimmed);
+      if (!match?.[1]) continue;
+      const pattern = match[1]
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replaceAll("\\", "/");
+      if (
+        pattern === "*" ||
+        pattern === "**" ||
+        pattern === "**/*" ||
+        pattern === "." ||
+        pattern === "./*" ||
+        pattern === "./**" ||
+        pattern === "/*" ||
+        pattern === "/**"
+      ) {
+        return true;
+      }
+      const rel = pattern.replace(/^(?:\.\/|\/)?(?:\*\*\/)?/, "").toLowerCase();
+      if (
+        rel === ".claude" ||
+        rel === ".claude/" ||
+        rel === ".claude/*" ||
+        rel === ".claude/**" ||
+        rel === ".claude/**/*" ||
+        rel === ".claude/*.json" ||
+        rel === ".claude/**/*.json" ||
+        /^\.claude\/settings(?:\*|\.\*)/.test(rel)
+      ) {
+        return true;
+      }
+      if (rel === ".claude/settings.json") {
+        coversSettingsJson = true;
+      }
+      if (
+        rel === ".claude/settings.local.json" ||
+        rel === ".claude/*.local.json" ||
+        rel === ".claude/settings.local*"
+      ) {
+        coversSettingsLocalJson = true;
+      }
+    }
+
+    return coversSettingsJson && coversSettingsLocalJson;
+  };
+
+  return checkTool("Edit") && checkTool("Write");
 }
 
 function hasSettingsHookOrConnectorGuard(
@@ -270,7 +322,7 @@ export function analyzeWorkspaceContext(
   let misplacedMcpInSettings = false;
   let disableAllHooksInSettings = false;
   let hasHookOrConnectorGuard = false;
-  let protectsClaudeSettings = false;
+  const combinedDenyEntries: string[] = [];
   const mcpServerNamesSet = new Set<string>();
 
   for (const relPath of WATCHED_RELATIVE_FILES) {
@@ -336,9 +388,7 @@ export function analyzeWorkspaceContext(
           if (hasSettingsHookOrConnectorGuard(rec)) {
             hasHookOrConnectorGuard = true;
           }
-          if (hasClaudeSettingsDenyProtection(rec)) {
-            protectsClaudeSettings = true;
-          }
+          combinedDenyEntries.push(...extractPermissionsDenyList(rec));
         }
       } catch {
         // Ignore parse error while typing
@@ -366,6 +416,8 @@ export function analyzeWorkspaceContext(
     });
   }
 
+  const protectsClaudeSettings =
+    denyEntriesProtectClaudeSettings(combinedDenyEntries);
   const unprotectedHookGuardInSettings =
     hasHookOrConnectorGuard && !protectsClaudeSettings;
   const mcpServerNames = [...mcpServerNamesSet].sort();

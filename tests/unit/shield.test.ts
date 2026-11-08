@@ -305,13 +305,61 @@ describe("Context Shield scanner", () => {
         ]),
       );
 
-      // Now remove disableAllHooks: true and protect .claude/** via permissions.deny in settings.local.json
+      // Narrower rules like .claude/commands/** or only settings.json (without settings.local.json) must NOT clear the warning
       await writeFile(
         join(projectDir, ".claude", "settings.local.json"),
         JSON.stringify(
           {
             permissions: {
-              deny: ["Edit(.claude/**)", "Write(.claude/**)"],
+              deny: [
+                "Edit(.claude/commands/**)",
+                "Write(.claude/commands/**)",
+                "Edit(.claude/settings.json)",
+                "Write(.claude/settings.json)",
+              ],
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const narrowDenyReport = await runContextShield({
+        projectRoot: projectDir,
+      });
+      expect(narrowDenyReport.status).toBe("warning");
+      expect(narrowDenyReport.findings.map((f) => f.id)).toEqual([
+        "claude-settings-unprotected-hook-guard",
+      ]);
+
+      // Non-Claude settings.json files (.vscode/settings.json, .codex/settings.json, .claude/skills/s/settings.json) are not flagged as Claude settings
+      expect(
+        scanContentWithShield(
+          '{"disableAllHooks": true}',
+          ".vscode/settings.json",
+        ),
+      ).toEqual([]);
+      expect(
+        scanContentWithShield(
+          '{"disableAllHooks": true}',
+          ".codex/settings.json",
+        ),
+      ).toEqual([]);
+      expect(
+        scanContentWithShield(
+          '{"disableAllHooks": true}',
+          ".claude/skills/demo/settings.json",
+        ),
+      ).toEqual([]);
+
+      // Now protect .claude/** via permissions.deny in settings.local.json (or split across settings.json and settings.local.json)
+      await writeFile(
+        join(projectDir, ".claude", "settings.local.json"),
+        JSON.stringify(
+          {
+            permissions: {
+              deny: ["Edit(./.claude/**)", "Write(.claude/**)"],
             },
           },
           null,

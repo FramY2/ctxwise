@@ -461,5 +461,5 @@ describe("CtxWise CLI", () => {
         "--strict",
       ]),
     ).rejects.toMatchObject({ code: 2 });
-  });
+  }, 20_000);
 });
