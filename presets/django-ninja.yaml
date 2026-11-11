@@ -1,0 +1,12 @@
+name: django-ninja
+stack: Python + Django 5 + Django Ninja
+description: Strict ORM query loading, explicit schemas, and safe Django Ninja API guidance.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+rules:
+  - "Use `select_related()` for single-valued relations and `prefetch_related()` for collections; guard list endpoints against N+1 queries."
+  - "Declare explicit, typed Django Ninja input and output schemas; never expose ORM models or accept unrestricted payloads."
+  - "Enforce authentication, object-level authorization, and tenant scoping in every route before accessing protected data."
+  - "Wrap multi-step writes and invariant-sensitive updates in `transaction.atomic()`; use `on_commit()` for external side effects."
+  - "Test endpoint success, validation, and permission failures; assert query counts on list endpoints to catch regressions."
