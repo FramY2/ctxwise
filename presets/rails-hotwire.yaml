@@ -1,0 +1,16 @@
+name: rails-hotwire
+stack: Ruby on Rails 8 + Hotwire + PostgreSQL
+description: Lean context budget and Rails conventions for server-rendered Hotwire apps.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+  unknown: warn
+recommendedMcpServers:
+  - postgres
+  - github
+rules:
+  - "Follow Rails conventions: RESTful resources, strong parameters via `params.expect`, and no business logic in views."
+  - "Prevent N+1 queries with `includes` or `preload`; add a database index and constraint for every new foreign key or uniqueness rule."
+  - "Prefer Turbo Frames and Turbo Streams over custom JavaScript; keep Stimulus controllers small and single-purpose."
+  - "Authorize every action server-side and scope records through the current user; never trust a hidden field or a Turbo request to enforce access."
+  - "Run `bin/rails test`, `bin/rubocop`, and `bin/brakeman` before marking any task complete."
