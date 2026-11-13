@@ -1,0 +1,15 @@
+name: terraform-aws
+stack: Terraform + AWS provider
+description: Lean context budget and plan-only safety rules for Terraform on AWS.
+budget:
+  maxKnownTokens: 2400
+  maxContributorTokens: 900
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Never run `terraform apply`, `destroy`, `import` or `state` subcommands; stop at `terraform plan -out=tfplan` and summarize the planned creates, updates and replacements for human review."
+  - "Pin `required_version`, the `hashicorp/aws` provider and module versions, and commit `.terraform.lock.hcl`; never edit state files by hand."
+  - "Write least-privilege IAM policies with explicit actions and resource ARNs; never commit AWS credentials, secret `*.tfvars` values, or `*.tfstate` files."
+  - "Keep remote state in an encrypted S3 backend with state locking, and set `default_tags` on the provider instead of repeating tags on every resource."
+  - "Run `terraform fmt -check -recursive` and `terraform validate` before marking any task complete."
