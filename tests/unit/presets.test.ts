@@ -1,10 +1,13 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import {
   applyPresetToProject,
   listBuiltInPresets,
+  parsePresetYaml,
   PRESET_ALIASES,
   renderPresetGuidanceMarkdown,
   resolvePresetName,
@@ -97,5 +100,62 @@ describe("Community Stack Presets", () => {
       expect(resolvePresetName("\tTurboRepo\n")).toBe("monorepo-turbo");
       expect(resolvePresetName(" Rust-Cargo ")).toBe("rust-cargo");
     });
+  });
+});
+
+describe("built-in preset files stay consistent", () => {
+  const presetsDir = fileURLToPath(new URL("../../presets/", import.meta.url));
+
+  async function loadPresetFiles() {
+    const files = (await readdir(presetsDir))
+      .filter((file) => file.endsWith(".yaml"))
+      .sort();
+    return Promise.all(
+      files.map(async (file) => ({
+        file,
+        preset: parsePresetYaml(await readFile(join(presetsDir, file), "utf8")),
+      })),
+    );
+  }
+
+  it("finds the preset files", async () => {
+    expect((await loadPresetFiles()).length).toBeGreaterThan(0);
+  });
+
+  it("names every file after its preset name", async () => {
+    for (const { file, preset } of await loadPresetFiles()) {
+      expect(`${preset.name}.yaml`, `${file}: name is "${preset.name}"`).toBe(
+        file,
+      );
+    }
+  });
+
+  it("uses each preset name only once", async () => {
+    const seen = new Map<string, string>();
+    for (const { file, preset } of await loadPresetFiles()) {
+      expect(
+        seen.get(preset.name),
+        `${file}: name "${preset.name}" is already used by ${seen.get(preset.name)}`,
+      ).toBeUndefined();
+      seen.set(preset.name, file);
+    }
+  });
+
+  it("keeps maxContributorTokens within maxKnownTokens", async () => {
+    for (const { file, preset } of await loadPresetFiles()) {
+      const { maxContributorTokens, maxKnownTokens } = preset.budget;
+      expect(
+        maxContributorTokens,
+        `${file}: maxContributorTokens ${maxContributorTokens} > maxKnownTokens ${maxKnownTokens}`,
+      ).toBeLessThanOrEqual(maxKnownTokens);
+    }
+  });
+
+  it("has no blank rules", async () => {
+    for (const { file, preset } of await loadPresetFiles()) {
+      preset.rules.forEach((rule, index) => {
+        expect(rule.trim(), `${file}: rules[${index}] is blank`).not.toBe("");
+      });
+    }
   });
 });
