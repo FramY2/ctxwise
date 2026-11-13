@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const CODEX_BYTE_CAP = 32_768;
@@ -10,10 +10,55 @@ export const WATCHED_RELATIVE_FILES = [
   "AGENTS.override.md",
   ".cursorrules",
   ".mcp.json",
+  ".cursor/mcp.json",
+  ".vscode/mcp.json",
   ".codex/config.toml",
   ".claude/settings.json",
   ".claude/settings.local.json",
 ] as const;
+
+/** Directory of Claude Code modular rules scanned recursively for `*.md`. */
+export const CLAUDE_RULES_RELATIVE_DIR = ".claude/rules";
+
+/** JSON MCP config files (`mcpServers` for Claude/Cursor, `servers` for VS Code). */
+export const MCP_JSON_RELATIVE_FILES: readonly string[] = [
+  ".mcp.json",
+  ".cursor/mcp.json",
+  ".vscode/mcp.json",
+];
+
+/** Glob used by the extension's FileSystemWatcher to refresh the status bar. */
+export const WATCHER_GLOB = `**/{${[
+  ...WATCHED_RELATIVE_FILES,
+  `${CLAUDE_RULES_RELATIVE_DIR}/**/*.md`,
+].join(",")}}`;
+
+const MAX_RULES_DEPTH = 6;
+
+export function listClaudeRuleFiles(workspaceRoot: string): string[] {
+  const results: string[] = [];
+  const walk = (relDir: string, depth: number): void => {
+    if (depth > MAX_RULES_DEPTH) return;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(join(workspaceRoot, relDir), {
+        withFileTypes: true,
+      });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const rel = `${relDir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(rel, depth + 1);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+        results.push(rel);
+      }
+    }
+  };
+  walk(CLAUDE_RULES_RELATIVE_DIR, 0);
+  return results.sort();
+}
 
 export type ContextGrade = "A" | "B" | "C" | "D" | "F";
 
@@ -112,25 +157,75 @@ export function countSecretsInContent(content: string): number {
   return count;
 }
 
+function stripJsonComments(input: string): string {
+  let out = "";
+  let inString = false;
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i] as string;
+    const next = input[i + 1];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        out += next ?? "";
+        i += 2;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      while (i < input.length && input[i] !== "\n") i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      const end = input.indexOf("*/", i + 2);
+      i = end === -1 ? input.length : end + 2;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
+}
+
 export function parseMcpServersFromJson(content: string): string[] {
+  let parsed: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(content) as Record<string, unknown>;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    parsed = JSON.parse(content) as Record<string, unknown>;
+  } catch {
+    try {
+      // .vscode/mcp.json is JSONC (comments + trailing commas allowed)
+      parsed = JSON.parse(stripJsonComments(content)) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      // Ignore malformed JSON while user is editing
       return [];
     }
-    const servers = parsed["mcpServers"];
-    if (servers && typeof servers === "object" && !Array.isArray(servers)) {
-      return Object.keys(servers as Record<string, unknown>).filter((name) => {
-        const entry = (servers as Record<string, unknown>)[name];
-        if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-          const rec = entry as Record<string, unknown>;
-          return rec["disabled"] !== true && rec["enabled"] !== false;
-        }
-        return true;
-      });
-    }
-  } catch {
-    // Ignore malformed JSON while user is editing
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return [];
+  }
+  // Claude Code / Cursor use "mcpServers"; VS Code .vscode/mcp.json uses "servers"
+  const servers = parsed["mcpServers"] ?? parsed["servers"];
+  if (servers && typeof servers === "object" && !Array.isArray(servers)) {
+    return Object.keys(servers as Record<string, unknown>).filter((name) => {
+      const entry = (servers as Record<string, unknown>)[name];
+      if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+        const rec = entry as Record<string, unknown>;
+        return rec["disabled"] !== true && rec["enabled"] !== false;
+      }
+      return true;
+    });
   }
   return [];
 }
@@ -325,7 +420,12 @@ export function analyzeWorkspaceContext(
   const combinedDenyEntries: string[] = [];
   const mcpServerNamesSet = new Set<string>();
 
-  for (const relPath of WATCHED_RELATIVE_FILES) {
+  const relativePaths: string[] = [
+    ...WATCHED_RELATIVE_FILES,
+    ...listClaudeRuleFiles(workspaceRoot),
+  ];
+
+  for (const relPath of relativePaths) {
     const absPath = join(workspaceRoot, relPath);
     if (!existsSync(absPath)) {
       continue;
@@ -341,7 +441,7 @@ export function analyzeWorkspaceContext(
     const fileSecrets = countSecretsInContent(content);
     secretCount += fileSecrets;
 
-    if (relPath === ".mcp.json") {
+    if (MCP_JSON_RELATIVE_FILES.includes(relPath)) {
       for (const name of parseMcpServersFromJson(content)) {
         mcpServerNamesSet.add(name);
       }
@@ -520,7 +620,7 @@ export function formatStatusBarTooltip(
   } else {
     lines.push("");
     lines.push(
-      "_No `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, or `.mcp.json` found in workspace root._",
+      "_No `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.claude/rules/`, or MCP config (`.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`) found in workspace root._",
     );
   }
 

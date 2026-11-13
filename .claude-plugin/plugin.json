@@ -1,0 +1,26 @@
+{
+  "name": "ctxwise",
+  "version": "1.2.0",
+  "description": "CtxWise: local-first AI context firewall, MCP schema tree-shaker, budget guard, drift detection, and usage receipts for Claude Code, OpenAI Codex, and Cursor.",
+  "author": {
+    "name": "Christian Frascogna",
+    "email": "chriss196422@gmail.com",
+    "url": "https://github.com/FramY2"
+  },
+  "homepage": "https://framy2.github.io/ctxwise/",
+  "repository": "https://github.com/FramY2/ctxwise",
+  "license": "Apache-2.0",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "mcp",
+    "context",
+    "tokens",
+    "security",
+    "prompt-injection",
+    "budget",
+    "drift",
+    "local-first"
+  ]
+}

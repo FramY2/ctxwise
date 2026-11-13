@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -27,6 +28,15 @@ import {
   parseContextBudgetPolicy,
   renderContextBudget,
 } from "./budget.js";
+import {
+  BUDGET_AGENTS,
+  combineBudgetSnapshots,
+  DEFAULT_BUDGET_POLICY_FILE,
+  relativeDisplayPath,
+  renderBudgetBreakdown,
+  type BudgetAgentBreakdown,
+  type BudgetAgentSelection,
+} from "./budget-agents.js";
 import { loadPriceCatalog } from "./catalog.js";
 import { resolveCodexInvocation } from "./codex-command.js";
 import { renderCodexDoctorReport, runCodexDoctor } from "./codex-doctor.js";
@@ -346,6 +356,18 @@ program
       "How unmeasured surfaces affect the budget",
     ).choices(["warn", "fail"]),
   )
+  .addOption(
+    new Option(
+      "--agent <agent>",
+      "Agent surface to budget; `all` applies the limit to the heaviest single agent session",
+    )
+      .choices(["all", ...BUDGET_AGENTS])
+      .default("all"),
+  )
+  .option(
+    "--claude-home <path>",
+    "Include user-level Claude Code guidance/memory from this directory (defaults to CLAUDE_CONFIG_DIR when set)",
+  )
   .option("--json", "Print structured JSON", false)
   .option(
     "--fail-on-exceed",
@@ -353,32 +375,68 @@ program
     false,
   )
   .action(async (options) => {
-    const policy = options.policy
-      ? parseContextBudgetPolicy(
-          await readFile(resolve(options.policy), "utf8"),
-        )
+    const home = codexHome(options.codexHome);
+    const scope = await commandProjectScope(home, options.project);
+    let policyPath: string | undefined = options.policy
+      ? resolve(options.policy)
+      : undefined;
+    if (
+      !policyPath &&
+      options.maxKnownTokens === undefined &&
+      options.maxContributorTokens === undefined
+    ) {
+      const discovered = join(scope.projectRoot, DEFAULT_BUDGET_POLICY_FILE);
+      if (existsSync(discovered)) policyPath = discovered;
+    }
+    const policy = policyPath
+      ? parseContextBudgetPolicy(await readFile(policyPath, "utf8"))
       : undefined;
     const maxKnownTokens = options.maxKnownTokens ?? policy?.maxKnownTokens;
     const maxContributorTokens =
       options.maxContributorTokens ?? policy?.maxContributorTokens;
     if (maxKnownTokens === undefined && maxContributorTokens === undefined) {
       throw new Error(
-        "Provide --max-known-tokens, --max-contributor-tokens, or --policy with a numeric limit.",
+        `Provide --max-known-tokens, --max-contributor-tokens, or --policy with a numeric limit (or run \`ctxwise init\` to create ${DEFAULT_BUDGET_POLICY_FILE}).`,
       );
     }
-    const home = codexHome(options.codexHome);
-    const scope = await commandProjectScope(home, options.project);
     const audit = await auditCodexSurface({ codexHome: home, ...scope });
-    const report = evaluateContextBudget(
-      buildAuditSnapshot(audit, { top: 1 }),
-      {
-        maxKnownTokens,
-        maxContributorTokens,
-        unknown: options.unknown ?? policy?.unknown ?? "warn",
-      },
-    );
-    if (options.json) printJson(report);
-    else process.stdout.write(renderContextBudget(report));
+    const codexSnapshot = buildAuditSnapshot(audit, { top: 1 });
+    const agent = options.agent as BudgetAgentSelection;
+    let snapshot = codexSnapshot;
+    let breakdown: BudgetAgentBreakdown | undefined;
+    if (agent !== "codex") {
+      const explicitClaudeHome =
+        options.claudeHome ?? process.env.CLAUDE_CONFIG_DIR;
+      const multi = await auditMultiAgentSurface({
+        projectRoot: scope.projectRoot,
+        ...(explicitClaudeHome
+          ? { claudeHome: claudeHome(explicitClaudeHome) }
+          : {}),
+      });
+      const combined = combineBudgetSnapshots(codexSnapshot, multi, agent);
+      snapshot = combined.snapshot;
+      breakdown = combined.breakdown;
+    }
+    const report = evaluateContextBudget(snapshot, {
+      maxKnownTokens,
+      maxContributorTokens,
+      unknown: options.unknown ?? policy?.unknown ?? "warn",
+    });
+    const policyLabel = policyPath
+      ? relativeDisplayPath(scope.projectRoot, policyPath)
+      : undefined;
+    if (options.json) {
+      printJson({
+        ...report,
+        agent,
+        ...(breakdown ? { agentBreakdown: breakdown } : {}),
+        ...(policyLabel ? { policy: policyLabel } : {}),
+      });
+    } else {
+      process.stdout.write(renderContextBudget(report));
+      if (breakdown) process.stdout.write(renderBudgetBreakdown(breakdown));
+      if (policyLabel) process.stdout.write(`Policy: ${policyLabel}\n`);
+    }
     if (options.failOnExceed && report.summary.blocking > 0) {
       process.exitCode = 2;
     }
@@ -685,6 +743,11 @@ program
   .option("--claude-home <path>", "Claude home directory")
   .option("--project <path>", "Explicit project root; auto-detected by default")
   .option("--json", "Print structured JSON", false)
+  .option(
+    "--fail-on-divergence",
+    "Exit with status 1 when CLAUDE.md and AGENTS.md instructions have diverged",
+    false,
+  )
   .action(async (options) => {
     const home = codexHome(options.codexHome);
     const scope = await commandProjectScope(home, options.project);
@@ -696,6 +759,12 @@ program
     });
     if (options.json) printJson(report);
     else process.stdout.write(renderMultiAgentReport(report));
+    if (options.failOnDivergence && report.parityStatus === "diverged") {
+      process.stderr.write(
+        `${pc.red("error:")} cross-agent divergence: CLAUDE.md and AGENTS.md differ. Run \`ctxwise sync\` to realign them.\n`,
+      );
+      process.exitCode = 1;
+    }
   });
 
 program

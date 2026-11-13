@@ -361,4 +361,118 @@ describe("Multi-Agent Audit, Token Diet Compressor, and Sync", () => {
       ).toBe(true);
     });
   });
+
+  it('includes .claude/rules/**/*.md and attributes .cursor/mcp.json and .vscode/mcp.json ("servers") MCP configs', async () => {
+    await withTempDir("ctxwise-agents-mcp-", async (root) => {
+      await mkdir(join(root, ".claude", "rules", "frontend"), {
+        recursive: true,
+      });
+      await mkdir(join(root, ".cursor"), { recursive: true });
+      await mkdir(join(root, ".vscode"), { recursive: true });
+      await mkdir(join(root, ".github"), { recursive: true });
+
+      await writeFile(
+        join(root, "CLAUDE.md"),
+        "# Rules\n- Be terse.\n",
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".claude", "rules", "testing.md"),
+        "# Testing\n- Run vitest before pushing.\n",
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".claude", "rules", "frontend", "react.md"),
+        "---\npaths: src/**/*.tsx\n---\n# React\n- Prefer function components.\n",
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".claude", "rules", "notes.txt"),
+        "not a rule\n",
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".mcp.json"),
+        JSON.stringify({
+          mcpServers: { github: { command: "npx", args: ["-y", "gh-mcp"] } },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".cursor", "mcp.json"),
+        JSON.stringify({
+          mcpServers: {
+            linear: { command: "npx", args: ["-y", "linear-mcp@1.0.0"] },
+            off: { command: "node", args: ["x.js"], disabled: true },
+          },
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".vscode", "mcp.json"),
+        [
+          "{",
+          '  // VS Code uses a top-level "servers" key',
+          '  "servers": {',
+          '    "fetch": { "type": "stdio", "command": "uvx", "args": ["mcp-server-fetch"] },',
+          '    "docs": { "type": "http", "url": "https://example.com/mcp" },',
+          "  },",
+          "}",
+        ].join("\n"),
+        "utf8",
+      );
+      await writeFile(
+        join(root, ".github", "copilot-instructions.md"),
+        "# Copilot\n- Small PRs.\n",
+        "utf8",
+      );
+
+      const report = await auditMultiAgentSurface({ projectRoot: root });
+
+      const claudeRulePaths = report.agents.claude.sources
+        .filter((s) => s.kind === "rule")
+        .map((s) => s.path);
+      expect(claudeRulePaths).toEqual([
+        "project/.claude/rules/frontend/react.md",
+        "project/.claude/rules/testing.md",
+      ]);
+      expect(report.agents.claude.files).toBe(4);
+      const claudeMcp = report.agents.claude.sources.find(
+        (s) => s.kind === "mcp-config",
+      );
+      expect(claudeMcp?.mcpServers).toEqual(["github"]);
+
+      const cursorMcp = report.agents.cursor.sources.find(
+        (s) => s.kind === "mcp-config",
+      );
+      expect(cursorMcp).toMatchObject({
+        agent: "cursor",
+        path: "project/.cursor/mcp.json",
+        mcpServers: ["linear"],
+      });
+
+      const vscodeMcp = report.companionSources.find(
+        (s) => s.path === "project/.vscode/mcp.json",
+      );
+      expect(vscodeMcp).toMatchObject({
+        agent: "copilot",
+        kind: "mcp-config",
+        mcpServers: ["fetch", "docs"],
+      });
+      expect(
+        report.companionSources.find((s) =>
+          s.path.endsWith("copilot-instructions.md"),
+        )?.agent,
+      ).toBe("copilot");
+
+      const rendered = renderMultiAgentReport(report);
+      expect(rendered).toContain("project/.claude/rules/testing.md");
+      expect(rendered).toContain(
+        "project/.cursor/mcp.json (1 MCP server: linear)",
+      );
+      expect(rendered).toContain(
+        "project/.vscode/mcp.json (2 MCP servers: fetch, docs)",
+      );
+    });
+  });
 });

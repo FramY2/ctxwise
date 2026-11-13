@@ -5,6 +5,27 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-11
+
+### Added
+
+- **Multi-agent `ctxwise budget`**: budgets now include Claude Code (`CLAUDE.md`, `.claude/rules/`, `.claude/skills`, `.claude/commands`, `.mcp.json`) and Cursor (`.cursorrules`, `.cursor/rules/`) startup files instead of reporting `0` tokens on non-Codex repositories. The default `--agent all` applies the limit to the heaviest single agent session (a synced `CLAUDE.md` + `AGENTS.md` pair is never double-counted); `--agent codex|claude|cursor` budgets one agent. JSON output adds `agent` and an `agentBreakdown`. User-level Claude files are included only with `--claude-home` or `CLAUDE_CONFIG_DIR`.
+- **`ctxwise.budget.yaml` auto-discovery**: `ctxwise budget` loads `<project>/ctxwise.budget.yaml` (written by `ctxwise init` / `ctxwise preset`) when neither `--policy` nor an inline limit is passed.
+- **`ctxwise agents --fail-on-divergence`**: exits `1` when `CLAUDE.md` and `AGENTS.md` have diverged.
+- **GitHub Action**: new `budget-policy` input with automatic `./ctxwise.budget.yaml` detection, `check-agent-parity` now runs `agents --fail-on-divergence`, a Markdown job summary (shield status, per-agent token breakdown, budget status) is appended to `$GITHUB_STEP_SUMMARY`, and inputs are passed through environment variables instead of being interpolated into shell scripts.
+- **Claude Code plugin manifests**: `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (`/plugin marketplace add FramY2/ctxwise`).
+- **MCP discovery across editors**: `.cursor/mcp.json` and `.vscode/mcp.json` (VS Code's top-level `"servers"` key) in `mcp-xray`, `mcp-prune`, `shield`, and the browser calculator; `.claude/rules/*.md` in the multi-agent audit; `unpinned-mcp-exec` shield finding for MCP servers launched from unpinned or `@latest` packages.
+
+### Changed
+
+- **Pricing catalog `2026-11-11`** (`data/pricing-2026-11-11.json`, now the default; `data/pricing-2026-08-08.json` stays available through `--pricing`): adds `claude-opus-4-8`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-4-5`, `claude-haiku-5-5`, `gpt-6-astra`, and `gpt-6.1-terra`; corrects `claude-opus-4-7` to `$5 / $0.50 / $25`, `gpt-6.1-sol` to `$2 / $0.10 / $10`, `gpt-6-terra` to `$1 / $0.05 / $5`, and `gpt-6-luna` to `$0.10 / $0.01 / $0.50` per 1M input / cached input / output tokens. The short `opus`, `sonnet`, and `haiku` aliases now resolve to the 5.5 generation. Credit rates for models without a published credit price are derived from the family ratio and labeled estimated.
+- **Browser calculator** (`docs/index.html`): pricing presets match the 2026-11-11 catalog (fixing a 100x `GPT-6-Luna` input price) and pasted `.vscode/mcp.json` files are parsed.
+- Internal launch and outreach notes were removed from the public `docs/` tree.
+
+### Fixed
+
+- The `--version` E2E test now has an explicit timeout so cold Windows runs no longer flake at Vitest's 5 s default.
+
 ## [1.1.1] - 2026-11-08
 
 ### Added

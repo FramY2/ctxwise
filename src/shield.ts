@@ -306,6 +306,522 @@ function isClaudeSettingsPath(normalizedPath: string): boolean {
   );
 }
 
+/**
+ * True for project-level MCP server config files read by Claude Code
+ * (`.mcp.json`), Cursor (`.cursor/mcp.json`), and VS Code / GitHub Copilot
+ * (`.vscode/mcp.json`).
+ */
+export function isMcpConfigPath(displayPath: string): boolean {
+  const normalized = displayPath.replaceAll("\\", "/");
+  return /(?:^|\/)(?:\.mcp\.json|\.cursor\/mcp\.json|\.vscode\/mcp\.json)$/i.test(
+    normalized,
+  );
+}
+
+/**
+ * Strip `//` and `/* *\/` comments (outside of strings) and trailing commas so
+ * JSONC MCP configs such as `.vscode/mcp.json` can be parsed.
+ */
+export function stripJsonComments(input: string): string {
+  let out = "";
+  let inString = false;
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i] as string;
+    const next = input[i + 1];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        out += next ?? "";
+        i += 2;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      i += 1;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      while (i < input.length && input[i] !== "\n") i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      const end = input.indexOf("*/", i + 2);
+      const block = end === -1 ? input.slice(i) : input.slice(i, end + 2);
+      out += block.replace(/[^\n]/g, " ");
+      i = end === -1 ? input.length : end + 2;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
+}
+
+/**
+ * Parse an MCP config file (JSON or JSONC) and return its server map, reading
+ * `"mcpServers"` (Claude Code / Cursor) or `"servers"` (VS Code `.vscode/mcp.json`).
+ * Returns `undefined` when the content is not a valid MCP config object.
+ */
+export function parseMcpConfigServers(
+  content: string,
+): Record<string, Record<string, unknown>> | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    try {
+      parsed = JSON.parse(stripJsonComments(content));
+    } catch {
+      return undefined;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const raw = parsed as Record<string, unknown>;
+  const servers = raw.mcpServers ?? raw.servers;
+  if (!servers || typeof servers !== "object" || Array.isArray(servers)) {
+    return undefined;
+  }
+  const result: Record<string, Record<string, unknown>> = {};
+  for (const [name, entry] of Object.entries(
+    servers as Record<string, unknown>,
+  )) {
+    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      result[name] = entry as Record<string, unknown>;
+    }
+  }
+  return result;
+}
+
+export function isMcpServerDisabled(entry: Record<string, unknown>): boolean {
+  return entry.disabled === true || entry.enabled === false;
+}
+
+export interface UnpinnedMcpExec {
+  runner: string;
+  spec: string;
+  packageName: string;
+  ecosystem: "npm" | "python";
+}
+
+const NPX_VALUE_FLAGS = new Set([
+  "-p",
+  "--package",
+  "-c",
+  "--call",
+  "--cache",
+  "--registry",
+  "--userconfig",
+  "--prefix",
+  "-w",
+  "--workspace",
+  "--node-options",
+  "--script-shell",
+  "--loglevel",
+]);
+const NPX_PACKAGE_FLAGS = new Set(["-p", "--package"]);
+const BUNX_VALUE_FLAGS = new Set(["-p", "--package", "--cwd", "--registry"]);
+const PNPM_DLX_VALUE_FLAGS = new Set([
+  "--package",
+  "-C",
+  "--dir",
+  "--reporter",
+  "--loglevel",
+  "--registry",
+]);
+const PNPM_PACKAGE_FLAGS = new Set(["--package"]);
+const YARN_DLX_VALUE_FLAGS = new Set(["-p", "--package"]);
+const UVX_VALUE_FLAGS = new Set([
+  "--from",
+  "--with",
+  "--with-editable",
+  "--with-requirements",
+  "-w",
+  "--python",
+  "-p",
+  "--index",
+  "--index-url",
+  "-i",
+  "--extra-index-url",
+  "--default-index",
+  "--find-links",
+  "-f",
+  "--directory",
+  "--project",
+  "--cache-dir",
+  "--config-file",
+  "--constraints",
+  "-c",
+  "--overrides",
+  "--build-constraints",
+  "-b",
+  "--env-file",
+  "--python-platform",
+  "--exclude-newer",
+  "--index-strategy",
+  "--keyring-provider",
+  "--resolution",
+  "--prerelease",
+  "--refresh-package",
+  "--reinstall-package",
+  "--upgrade-package",
+  "-P",
+  "--color",
+  "--allow-insecure-host",
+]);
+const UVX_PACKAGE_FLAGS = new Set(["--from"]);
+const UVX_EXTRA_PACKAGE_FLAGS = new Set(["--with", "-w"]);
+const PIPX_RUN_VALUE_FLAGS = new Set([
+  "--spec",
+  "--python",
+  "--pip-args",
+  "--index-url",
+  "-i",
+]);
+const PIPX_PACKAGE_FLAGS = new Set(["--spec"]);
+const EMPTY_FLAGS = new Set<string>();
+
+function normalizeExecutableName(command: string): string {
+  const base =
+    command
+      .trim()
+      .replace(/^["']|["']$/g, "")
+      .split(/[\\/]/)
+      .pop() ?? "";
+  return base.toLowerCase().replace(/\.(?:cmd|exe|bat|ps1|com)$/, "");
+}
+
+function collectRunnerSpecs(
+  rest: readonly string[],
+  valueFlags: ReadonlySet<string>,
+  packageFlags: ReadonlySet<string>,
+  extraPackageFlags: ReadonlySet<string>,
+): string[] {
+  const specs: string[] = [];
+  let replacedPositional = false;
+  let positional: string | undefined;
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i] as string;
+    if (arg === "--") {
+      positional = rest[i + 1];
+      break;
+    }
+    if (arg.startsWith("-") && arg.length > 1) {
+      const eq = arg.indexOf("=");
+      const flag = eq > 0 ? arg.slice(0, eq) : arg;
+      if (valueFlags.has(flag)) {
+        const value = eq > 0 ? arg.slice(eq + 1) : rest[++i];
+        if (value !== undefined) {
+          if (packageFlags.has(flag)) {
+            specs.push(value);
+            replacedPositional = true;
+          } else if (extraPackageFlags.has(flag)) {
+            specs.push(value);
+          }
+        }
+      }
+      continue;
+    }
+    positional = arg;
+    break;
+  }
+  if (!replacedPositional && positional !== undefined) {
+    specs.unshift(positional);
+  }
+  return specs;
+}
+
+const EXACT_SEMVER =
+  /^=?v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const NPM_PACKAGE_NAME = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/i;
+const GIT_COMMIT_REF = /#[0-9a-f]{7,40}$/i;
+
+function isLocalPathSpec(spec: string): boolean {
+  return /^(?:\.{1,2}(?:[\\/]|$)|[\\/]|~[\\/]|[A-Za-z]:[\\/]|file:)/.test(spec);
+}
+
+type PinStatus =
+  { status: "pinned" | "skip" } | { status: "unpinned"; packageName: string };
+
+function classifyNpmSpec(rawSpec: string): PinStatus {
+  const spec = rawSpec.trim().replace(/^npm:/, "");
+  if (!spec || isLocalPathSpec(spec) || /^https?:\/\//i.test(spec)) {
+    return { status: "skip" };
+  }
+  if (
+    /^(?:git\+|git:|github:|gitlab:|bitbucket:)/i.test(spec) ||
+    /^[a-z0-9][\w.-]*\/[\w.-]+(?:#.*)?$/i.test(spec)
+  ) {
+    return GIT_COMMIT_REF.test(spec)
+      ? { status: "pinned" }
+      : { status: "unpinned", packageName: spec.replace(/#.*$/, "") };
+  }
+  const versionAt = spec.startsWith("@")
+    ? spec.indexOf("@", 1)
+    : spec.indexOf("@");
+  const name = versionAt > 0 ? spec.slice(0, versionAt) : spec;
+  const version = versionAt > 0 ? spec.slice(versionAt + 1) : "";
+  if (!NPM_PACKAGE_NAME.test(name)) return { status: "skip" };
+  if (version && EXACT_SEMVER.test(version)) return { status: "pinned" };
+  return { status: "unpinned", packageName: name };
+}
+
+function classifyPythonSpec(rawSpec: string): PinStatus {
+  const spec = rawSpec.trim();
+  if (!spec || isLocalPathSpec(spec) || /^https?:\/\//i.test(spec)) {
+    return { status: "skip" };
+  }
+  if (/^git\+/i.test(spec)) {
+    return /@[0-9a-f]{7,40}(?:#.*)?$/i.test(spec)
+      ? { status: "pinned" }
+      : { status: "unpinned", packageName: spec.replace(/@[^@/]*$/, "") };
+  }
+  const match = /^([A-Za-z0-9][A-Za-z0-9._-]*)(\[[^\]]*\])?\s*(.*)$/.exec(spec);
+  if (!match?.[1]) return { status: "skip" };
+  const name = match[1];
+  const constraint = (match[3] ?? "").trim();
+  if (/^===?\s*[^\s*,;]+$/.test(constraint)) return { status: "pinned" };
+  const atVersion = /^@\s*(.+)$/.exec(constraint)?.[1]?.trim();
+  if (atVersion && /^\d[\w.!+-]*$/.test(atVersion)) {
+    return { status: "pinned" };
+  }
+  if (constraint.includes("/") || constraint.includes("\\")) {
+    return { status: "skip" };
+  }
+  return { status: "unpinned", packageName: name };
+}
+
+/**
+ * Detect auto-installing package runners (`npx`, `npm exec`, `bunx`,
+ * `pnpm dlx`, `yarn dlx`, `uvx`, `uv tool run`, `pipx run`) that execute an
+ * unpinned or `@latest` package specifier inside an MCP server declaration.
+ */
+export function findUnpinnedMcpExec(
+  command: string,
+  args: readonly string[] = [],
+): UnpinnedMcpExec[] {
+  let argv = [command, ...args].filter(
+    (part): part is string => typeof part === "string",
+  );
+  if (args.length === 0 && /\s/.test(command.trim())) {
+    argv = command.trim().split(/\s+/);
+  }
+  let exe = normalizeExecutableName(argv[0] ?? "");
+  let rest = argv.slice(1);
+  if (exe === "cmd" && rest[0] && /^\/[cCkK]$/.test(rest[0])) {
+    const inner = rest.slice(1);
+    argv =
+      inner.length === 1 && /\s/.test(inner[0] ?? "")
+        ? (inner[0] as string).trim().split(/\s+/)
+        : inner;
+    exe = normalizeExecutableName(argv[0] ?? "");
+    rest = argv.slice(1);
+  }
+
+  let runner: string | undefined;
+  let ecosystem: "npm" | "python" = "npm";
+  let specs: string[] = [];
+
+  if (
+    exe === "npx" ||
+    (exe === "npm" && (rest[0] === "exec" || rest[0] === "x"))
+  ) {
+    const runnerArgs = exe === "npx" ? rest : rest.slice(1);
+    if (runnerArgs.includes("--no") || runnerArgs.includes("--no-install")) {
+      return [];
+    }
+    runner = exe === "npx" ? "npx" : `npm ${rest[0]}`;
+    specs = collectRunnerSpecs(
+      runnerArgs,
+      NPX_VALUE_FLAGS,
+      NPX_PACKAGE_FLAGS,
+      EMPTY_FLAGS,
+    );
+  } else if (exe === "bunx" || (exe === "bun" && rest[0] === "x")) {
+    runner = exe === "bunx" ? "bunx" : "bun x";
+    specs = collectRunnerSpecs(
+      exe === "bunx" ? rest : rest.slice(1),
+      BUNX_VALUE_FLAGS,
+      NPX_PACKAGE_FLAGS,
+      EMPTY_FLAGS,
+    );
+  } else if (exe === "pnpx" || (exe === "pnpm" && rest[0] === "dlx")) {
+    runner = exe === "pnpx" ? "pnpx" : "pnpm dlx";
+    specs = collectRunnerSpecs(
+      exe === "pnpx" ? rest : rest.slice(1),
+      PNPM_DLX_VALUE_FLAGS,
+      PNPM_PACKAGE_FLAGS,
+      EMPTY_FLAGS,
+    );
+  } else if (exe === "yarn" && rest[0] === "dlx") {
+    runner = "yarn dlx";
+    specs = collectRunnerSpecs(
+      rest.slice(1),
+      YARN_DLX_VALUE_FLAGS,
+      NPX_PACKAGE_FLAGS,
+      EMPTY_FLAGS,
+    );
+  } else if (
+    exe === "uvx" ||
+    (exe === "uv" && rest[0] === "tool" && rest[1] === "run")
+  ) {
+    runner = exe === "uvx" ? "uvx" : "uv tool run";
+    ecosystem = "python";
+    specs = collectRunnerSpecs(
+      exe === "uvx" ? rest : rest.slice(2),
+      UVX_VALUE_FLAGS,
+      UVX_PACKAGE_FLAGS,
+      UVX_EXTRA_PACKAGE_FLAGS,
+    );
+  } else if (exe === "pipx" && rest[0] === "run") {
+    runner = "pipx run";
+    ecosystem = "python";
+    specs = collectRunnerSpecs(
+      rest.slice(1),
+      PIPX_RUN_VALUE_FLAGS,
+      PIPX_PACKAGE_FLAGS,
+      EMPTY_FLAGS,
+    );
+  }
+
+  if (!runner) return [];
+  const results: UnpinnedMcpExec[] = [];
+  for (const spec of specs) {
+    const verdict =
+      ecosystem === "npm" ? classifyNpmSpec(spec) : classifyPythonSpec(spec);
+    if (verdict.status === "unpinned") {
+      results.push({
+        runner,
+        spec,
+        packageName: verdict.packageName,
+        ecosystem,
+      });
+    }
+  }
+  return results;
+}
+
+const MCP_AUTH_HEADER_NAMES =
+  /^(?:authorization|proxy-authorization|x-api-key|api-key|x-auth-token)$/i;
+
+function findLineIndex(
+  lines: readonly string[],
+  needle: string,
+  fromIndex = 0,
+): number {
+  for (let i = Math.max(0, fromIndex); i < lines.length; i++) {
+    if ((lines[i] ?? "").includes(needle)) return i;
+  }
+  return -1;
+}
+
+function scanMcpConfigServers(
+  content: string,
+  displayPath: string,
+  lines: readonly string[],
+  existing: readonly ShieldFinding[],
+): ShieldFinding[] {
+  const servers = parseMcpConfigServers(content);
+  if (!servers) return [];
+  const findings: ShieldFinding[] = [];
+
+  for (const [name, entry] of Object.entries(servers)) {
+    if (isMcpServerDisabled(entry)) continue;
+    const serverLineIdx = lines.findIndex((l) =>
+      l.includes(`${JSON.stringify(name)}`),
+    );
+
+    const command = typeof entry.command === "string" ? entry.command : "";
+    const args = Array.isArray(entry.args)
+      ? entry.args.filter((a): a is string => typeof a === "string")
+      : [];
+    if (command) {
+      for (const hit of findUnpinnedMcpExec(command, args)) {
+        let lineIdx = findLineIndex(
+          lines,
+          JSON.stringify(hit.spec),
+          serverLineIdx,
+        );
+        if (lineIdx < 0)
+          lineIdx = findLineIndex(lines, hit.spec, serverLineIdx);
+        if (lineIdx < 0) lineIdx = serverLineIdx;
+        const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
+        const suggestion =
+          hit.ecosystem === "npm"
+            ? `${hit.packageName}@1.2.3`
+            : `${hit.packageName}==1.2.3`;
+        findings.push({
+          id: "unpinned-mcp-exec",
+          category: "unpinned-mcp-exec",
+          severity: "medium",
+          path: displayPath,
+          line: lineNumber,
+          message: `MCP server "${name}" auto-installs "${hit.spec}" via ${hit.runner} without a pinned version, so every session silently executes whatever the registry serves next (supply-chain rug-pull risk); pin an exact version such as "${suggestion}".`,
+          snippet: maskSnippet(
+            lines[lineNumber - 1] ?? `${hit.runner} ${hit.spec}`,
+          ),
+        });
+      }
+    }
+
+    const headers = entry.headers;
+    if (headers && typeof headers === "object" && !Array.isArray(headers)) {
+      for (const [header, value] of Object.entries(
+        headers as Record<string, unknown>,
+      )) {
+        if (typeof value !== "string" || !MCP_AUTH_HEADER_NAMES.test(header)) {
+          continue;
+        }
+        const credential = value.replace(/^(?:Bearer|Basic|Token)\s+/i, "");
+        if (
+          credential.length < 16 ||
+          /\$\{[^}]+\}|\$[A-Z_][A-Z0-9_]*/.test(credential) ||
+          isPlaceholderSecret(credential)
+        ) {
+          continue;
+        }
+        let lineIdx = findLineIndex(lines, credential, serverLineIdx);
+        if (lineIdx < 0) lineIdx = findLineIndex(lines, credential);
+        const lineNumber = lineIdx >= 0 ? lineIdx + 1 : 1;
+        if (
+          existing.some(
+            (f) =>
+              f.category === "secret-exposure" &&
+              f.line === lineNumber &&
+              f.path === displayPath,
+          )
+        ) {
+          continue;
+        }
+        const rawLine = lines[lineNumber - 1] ?? `"${header}": "***"`;
+        findings.push({
+          id: "mcp-inline-auth-header",
+          category: "secret-exposure",
+          severity: "high",
+          path: displayPath,
+          line: lineNumber,
+          message: `MCP server "${name}" hardcodes a literal "${header}" credential header; reference an environment variable or input (e.g. "\${env:API_TOKEN}" / "\${input:token}") instead of committing the token.`,
+          snippet: maskSnippet(
+            rawLine.replace(
+              credential,
+              `${credential.slice(0, 4)}***REDACTED***`,
+            ),
+          ),
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
 export function scanContentWithShield(
   content: string,
   displayPath: string,
@@ -469,6 +985,13 @@ export function scanContentWithShield(
     }
   }
 
+  // MCP server configs: .mcp.json (Claude Code), .cursor/mcp.json (Cursor), .vscode/mcp.json (VS Code "servers")
+  if (isMcpConfigPath(normalizedDisplayPath)) {
+    findings.push(
+      ...scanMcpConfigServers(content, displayPath, lines, findings),
+    );
+  }
+
   return findings;
 }
 
@@ -508,8 +1031,11 @@ async function walkContextFiles(root: string, depth = 5): Promise<string[]> {
         ) ||
         normalized.endsWith("/.cursorrules") ||
         normalized.endsWith("/.mcp.json") ||
+        normalized.endsWith("/.cursor/mcp.json") ||
+        normalized.endsWith("/.vscode/mcp.json") ||
         normalized.includes("/.codex/") ||
         normalized.includes("/.claude/") ||
+        /\/\.claude\/rules\/.+\.md$/i.test(normalized) ||
         normalized.includes("/.cursor/rules/") ||
         normalized.includes("/.agents/skills/") ||
         normalized.endsWith("/copilot-instructions.md");
@@ -694,6 +1220,20 @@ export function buildShieldSarif(
       severity: "medium",
       message:
         'PreToolUse MCP guard hook or connector restriction in Claude settings is not protected by permissions.deny against mid-session hot-reload tampering (anthropics/claude-code#106225); add "Edit(.claude/**)" and "Write(.claude/**)" to permissions.deny.',
+    },
+    {
+      id: "unpinned-mcp-exec",
+      category: "unpinned-mcp-exec",
+      severity: "medium",
+      message:
+        "MCP server auto-installs an unpinned or @latest package via npx/bunx/pnpm dlx/uvx (supply-chain rug-pull risk); pin an exact version such as @scope/pkg@1.2.3 or pkg==1.2.3.",
+    },
+    {
+      id: "mcp-inline-auth-header",
+      category: "secret-exposure",
+      severity: "high",
+      message:
+        "MCP server config hardcodes a literal credential header; reference an environment variable or input instead.",
     },
   ];
 

@@ -98,7 +98,7 @@ flowchart LR
 
 ### 1. 🌳 MCP Schema Tree-Shaking (`mcp-xray`)
 
-Discover all MCP servers declared across `.mcp.json`, `~/.claude.json`, and `~/.codex/config.toml`. Measure exact token weights per tool schema (from a saved `tools/list` JSON file or by probing local stdio servers live) and spot `[BLOATED]` tools (`>= 250` tokens or `>= 12` input properties):
+Discover all MCP servers declared across `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json` (VS Code's top-level `"servers"` key), `~/.claude.json`, and `~/.codex/config.toml`. Measure exact token weights per tool schema (from a saved `tools/list` JSON file or by probing local stdio servers live) and spot `[BLOATED]` tools (`>= 250` tokens or `>= 12` input properties):
 
 ```shell
 npx @framy2/ctxwise mcp-xray --probe-stdio
@@ -116,10 +116,11 @@ Tree-shaking potential: ~1,530 tokens/turn savable by pruning bloated tools.
 
 ### 2. 🔄 Multi-Agent Context Audit & "Token Diet" Sync (`agents` & `sync`)
 
-Keep **Claude Code** (`CLAUDE.md`, `.claude/skills`, `.claude/commands`, `.mcp.json`), **OpenAI Codex** (`AGENTS.md`, `.codex/skills`), and **Cursor** (`.cursor/rules/*.mdc`) 100% aligned while stripping markdown bloat (HTML comments, duplicate bullet rules, blank padding) without touching fenced code blocks:
+Keep **Claude Code** (`CLAUDE.md`, `.claude/rules/`, `.claude/skills`, `.claude/commands`, `.mcp.json`), **OpenAI Codex** (`AGENTS.md`, `.codex/skills`), and **Cursor** (`.cursor/rules/*.mdc`) 100% aligned while stripping markdown bloat (HTML comments, duplicate bullet rules, blank padding) without touching fenced code blocks. In CI, `ctxwise agents --fail-on-divergence` exits `1` when `CLAUDE.md` and `AGENTS.md` drift apart:
 
 ```shell
 npx @framy2/ctxwise agents
+npx @framy2/ctxwise agents --fail-on-divergence
 npx @framy2/ctxwise sync --compress --cursor
 ```
 
@@ -130,6 +131,7 @@ Protect your repository before an agent reads your workspace or before a PR merg
 - **Secret Exposure Detection:** Catches hardcoded Anthropic (`sk-ant-...`), OpenAI (`sk-proj-...`), GitHub (`ghp_...`), AWS (`AKIA...`), and private key blocks inside `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, and skills.
 - **Prompt Injection & Trojan Unicode Guard:** Detects override directives (`ignore all previous instructions`), covert HTML comment payloads (`<!-- curl ... -->`), and hidden bidirectional/zero-width Unicode characters.
 - **Claude Settings Hygiene & SARIF 2.1.0 Output:** Flags misplaced `"mcpServers"` blocks inside `.claude/settings.json` (`anthropics/claude-code#105885`) and emits SARIF 2.1.0 (`--sarif ctxwise.sarif`) for GitHub Code Scanning.
+- **Unpinned MCP Launchers (`unpinned-mcp-exec`):** Flags MCP servers that run an unpinned or `@latest` package through `npx` / `uvx` style launchers, so a compromised upstream release cannot silently enter your agent's tool surface.
 
 ```shell
 npx @framy2/ctxwise shield --fail-on-risk --sarif ctxwise.sarif
@@ -142,7 +144,10 @@ Bootstrap a reviewable token budget (`ctxwise.budget.yaml`) and lean starter `AG
 ```shell
 npx @framy2/ctxwise preset
 npx @framy2/ctxwise preset nextjs-typescript --with-guidance
+npx @framy2/ctxwise budget --fail-on-exceed   # auto-loads ./ctxwise.budget.yaml
 ```
+
+`ctxwise budget` covers Claude Code, Codex, and Cursor startup files. By default (`--agent all`) the limit applies to the heaviest single agent session, so a synced `CLAUDE.md` + `AGENTS.md` pair is never double-counted; use `--agent codex|claude|cursor` to budget one agent.
 
 Built-in presets include:
 
@@ -170,13 +175,26 @@ Add **CtxWise** to `.github/workflows/ci.yml` in 5 lines to automatically block 
     sarif-file: "ctxwise-shield.sarif"
 ```
 
+When `./ctxwise.budget.yaml` exists (or `budget-policy` points at a policy file), the Action uses it instead of `max-known-tokens`. `check-agent-parity: "true"` runs `ctxwise agents --fail-on-divergence`, and every run appends a Markdown report (shield status, per-agent token breakdown, budget status) to the job summary.
+
+---
+
+## 🧩 Claude Code Plugin
+
+CtxWise ships a native Claude Code plugin manifest (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`) that installs the `ctxwise` skill:
+
+```text
+/plugin marketplace add FramY2/ctxwise
+/plugin install ctxwise@ctxwise
+```
+
 ---
 
 ## 🧩 Companion Tools / Ecosystem
 
 - **[`FramY2/mcp-diet`](https://github.com/FramY2/mcp-diet) (`@framy2/mcp-diet`)**: Zero-dependency stdio MCP proxy & runtime firewall — deterministic `tools/list` tree-shaking (`--allow`, `--deny`, `--read-only`, `--max-desc`), oversized `tools/call` crash guard (`--max-result-kb` for `anthropics/claude-code#105703`), and live credential redaction (`--redact-secrets`).
 - **[`FramY2/agent-wire-tap`](https://github.com/FramY2/agent-wire-tap) (`@framy2/agent-wire-tap`)**: Zero-cost local loopback HTTP interceptor & CI contract tester for coding agents (`codex`, `claude`) — captures exact outbound wire payloads and verifies system prompt, tool count, and byte budget contracts with **$0.00 API cost**.
-- **[Interactive Context & MCP Token Tax Calculator](https://framy2.github.io/ctxwise/)**: 100% client-side web app to measure per-turn MCP schema tax, 50-turn session cost across Claude Opus 4.7 / Sonnet 4.6 / GPT-6.1-Sol / GPT-6-Luna, Codex `32 KiB` truncation status, and leaked secrets.
+- **[Interactive Context & MCP Token Tax Calculator](https://framy2.github.io/ctxwise/)**: 100% client-side web app to measure per-turn MCP schema tax, 50-turn session cost across Claude Opus 4.7 / Opus 5.5 / Sonnet 5.5 / GPT-6.1-Sol / GPT-6-Luna (2026-11-11 list prices), Codex `32 KiB` truncation status, and leaked secrets. Accepts `.mcp.json` and `.vscode/mcp.json`.
 - **[`ctxwise-vscode` (`editors/vscode`)](editors/vscode)**: Lightweight VS Code & Cursor status-bar extension displaying live workspace token tax, Context Grade (`A`–`F`), Codex `32 KiB` cap percentage, and secret alerts.
 
 ---
@@ -193,26 +211,26 @@ Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md) or
 
 ## 🧰 Full CLI Reference
 
-| Command                | What it does                                                                                   | Network / Model Call        |
-| :--------------------- | :--------------------------------------------------------------------------------------------- | :-------------------------- |
-| `ctxwise agents`       | Audits startup tokens and parity across **Claude Code**, **OpenAI Codex**, and **Cursor**      | None                        |
-| `ctxwise sync`         | Synchronizes `AGENTS.md` ↔ `CLAUDE.md` ↔ `.cursor/rules` with optional `--compress` Token Diet | None                        |
-| `ctxwise codex-doctor` | Audits `AGENTS.override.md` / `AGENTS.md` hierarchy against Codex's `32 KiB` truncation limit  | None                        |
-| `ctxwise mcp-xray`     | Profiles MCP server tool-schema token weights and flags bloated tools for tree-shaking         | None (or local stdio probe) |
-| `ctxwise mcp-prune`    | Disables bloated or unused MCP servers in `.mcp.json` / `.codex/config.toml` with `.bak` save  | None (or local stdio probe) |
-| `ctxwise shield`       | Scans agent context files & skills for leaked API keys, prompt injection, and hidden Unicode   | None                        |
-| `ctxwise preset`       | Lists or applies curated stack budgets and `AGENTS.md` / `CLAUDE.md` templates                 | None                        |
-| `ctxwise snapshot`     | Ranks known Codex context contributors, coverage gaps, and safe next actions                   | None                        |
-| `ctxwise budget`       | Checks estimated known context against CLI or YAML limits; exits `2` on violation in CI        | None                        |
-| `ctxwise audit`        | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs         | None                        |
-| `ctxwise map`          | Renders a bounded Mermaid map of context sources and discovery overhead                        | None                        |
-| `ctxwise xray`         | Summarizes model-visible prompt JSON without echoing its text                                  | None                        |
-| `ctxwise profile`      | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups              | None                        |
-| `ctxwise lock`         | Hashes a redacted capability surface (`ctxwise.lock.json`) for reproducibility                 | None                        |
-| `ctxwise drift`        | Compares a capability lock with a file or live setup; can fail CI on drift                     | None                        |
-| `ctxwise quota`        | Reads the current plan and quota window through local Codex app-server                         | Codex account read only     |
-| `ctxwise receipt`      | Calculates an honest receipt from saved `codex exec --json` usage                              | None                        |
-| `ctxwise run`          | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray                      | Requested Codex turn        |
+| Command                | What it does                                                                                                                       | Network / Model Call        |
+| :--------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- |
+| `ctxwise agents`       | Audits startup tokens and parity across **Claude Code**, **OpenAI Codex**, and **Cursor**                                          | None                        |
+| `ctxwise sync`         | Synchronizes `AGENTS.md` ↔ `CLAUDE.md` ↔ `.cursor/rules` with optional `--compress` Token Diet                                     | None                        |
+| `ctxwise codex-doctor` | Audits `AGENTS.override.md` / `AGENTS.md` hierarchy against Codex's `32 KiB` truncation limit                                      | None                        |
+| `ctxwise mcp-xray`     | Profiles MCP server tool-schema token weights and flags bloated tools for tree-shaking                                             | None (or local stdio probe) |
+| `ctxwise mcp-prune`    | Disables bloated or unused MCP servers in `.mcp.json` / `.codex/config.toml` with `.bak` save                                      | None (or local stdio probe) |
+| `ctxwise shield`       | Scans agent context files & skills for leaked API keys, prompt injection, and hidden Unicode                                       | None                        |
+| `ctxwise preset`       | Lists or applies curated stack budgets and `AGENTS.md` / `CLAUDE.md` templates                                                     | None                        |
+| `ctxwise snapshot`     | Ranks known Codex context contributors, coverage gaps, and safe next actions                                                       | None                        |
+| `ctxwise budget`       | Checks Claude Code / Codex / Cursor startup context against CLI or YAML limits (auto-loads `ctxwise.budget.yaml`); exits `2` in CI | None                        |
+| `ctxwise audit`        | Inventories config plus active root-to-CWD guidance, skills, plugins, agents, and MCPs                                             | None                        |
+| `ctxwise map`          | Renders a bounded Mermaid map of context sources and discovery overhead                                                            | None                        |
+| `ctxwise xray`         | Summarizes model-visible prompt JSON without echoing its text                                                                      | None                        |
+| `ctxwise profile`      | Compiles YAML into native `~/.codex/<name>.config.toml`, with dry-run and backups                                                  | None                        |
+| `ctxwise lock`         | Hashes a redacted capability surface (`ctxwise.lock.json`) for reproducibility                                                     | None                        |
+| `ctxwise drift`        | Compares a capability lock with a file or live setup; can fail CI on drift                                                         | None                        |
+| `ctxwise quota`        | Reads the current plan and quota window through local Codex app-server                                                             | Codex account read only     |
+| `ctxwise receipt`      | Calculates an honest receipt from saved `codex exec --json` usage                                                                  | None                        |
+| `ctxwise run`          | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray                                                          | Requested Codex turn        |
 
 New to profiles? Follow the [lean-profile walkthrough](docs/tutorials/lean-profile.md): it turns a real `audit` finding into a reviewable lean profile, end to end.
 

@@ -21,7 +21,9 @@ const created: string[] = [];
 
 afterEach(() => cleanupDirectories(created));
 
-describe("CtxWise CLI", () => {
+// Each test spawns one or more `tsx` CLI processes; cold Windows runs and
+// loaded CI runners regularly exceed Vitest's 5s default per test.
+describe("CtxWise CLI", { timeout: 20_000 }, () => {
   it("reports the version published in package.json", async () => {
     const packageJson = JSON.parse(
       await readFile(
@@ -29,14 +31,14 @@ describe("CtxWise CLI", () => {
         "utf8",
       ),
     ) as { version: string };
-    const { stdout } = await execFileAsync(process.execPath, [
-      tsx,
-      cli,
-      "--version",
-    ]);
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      [tsx, cli, "--version"],
+      { timeout: 10_000 },
+    );
 
     expect(stdout.trim()).toBe(packageJson.version);
-  });
+  }, 10_000);
 
   it("runs Codex and appends an honest subscription receipt", async () => {
     const { stdout } = await execFileAsync(
@@ -260,6 +262,108 @@ describe("CtxWise CLI", () => {
       ),
     ).rejects.toMatchObject({ code: 2 });
   });
+
+  it("auto-loads ctxwise.budget.yaml and budgets Claude Code-only repositories", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-budget-auto-"));
+    created.push(root);
+    const codexHome = join(root, ".codex");
+    const projectRoot = join(root, "repo");
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+    ]);
+    await writeFile(join(projectRoot, "CLAUDE.md"), "x".repeat(4_000));
+    await writeFile(
+      join(projectRoot, "ctxwise.budget.yaml"),
+      "version: 1\nmaxKnownTokens: 500\nunknown: warn\n",
+    );
+    const args = [
+      tsx,
+      cli,
+      "budget",
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--json",
+    ];
+    const env = { ...process.env, CLAUDE_CONFIG_DIR: "" };
+
+    const { stdout } = await execFileAsync(process.execPath, args, {
+      cwd: projectRoot,
+      env,
+      timeout: 10_000,
+    });
+    expect(JSON.parse(stdout)).toMatchObject({
+      status: "over-budget",
+      estimatedKnownStartupTokens: 1_000,
+      limits: { maxKnownTokens: 500 },
+      agent: "all",
+      policy: "ctxwise.budget.yaml",
+      agentBreakdown: {
+        agents: { codex: 0, claude: 1_000, cursor: 0 },
+        budgetedAgent: "claude",
+      },
+    });
+    await expect(
+      execFileAsync(process.execPath, [...args, "--fail-on-exceed"], {
+        cwd: projectRoot,
+        env,
+        timeout: 10_000,
+      }),
+    ).rejects.toMatchObject({ code: 2 });
+
+    const { stdout: codexOnly } = await execFileAsync(
+      process.execPath,
+      [...args, "--agent", "codex", "--fail-on-exceed"],
+      { cwd: projectRoot, env, timeout: 10_000 },
+    );
+    expect(JSON.parse(codexOnly)).toMatchObject({
+      status: "within-budget",
+      agent: "codex",
+    });
+  }, 20_000);
+
+  it("fails agents --fail-on-divergence when CLAUDE.md and AGENTS.md drift apart", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-agents-diverge-"));
+    created.push(root);
+    const codexHome = join(root, ".codex");
+    const claudeHome = join(root, ".claude-home");
+    const projectRoot = join(root, "repo");
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(claudeHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+    ]);
+    await writeFile(join(projectRoot, "AGENTS.md"), "Use pnpm.\n");
+    await writeFile(join(projectRoot, "CLAUDE.md"), "Use pnpm.\n");
+    const args = [
+      tsx,
+      cli,
+      "agents",
+      "--codex-home",
+      codexHome,
+      "--claude-home",
+      claudeHome,
+      "--project",
+      projectRoot,
+      "--fail-on-divergence",
+    ];
+
+    const { stdout } = await execFileAsync(process.execPath, args, {
+      cwd: projectRoot,
+      timeout: 10_000,
+    });
+    expect(stdout).toContain("parity: synced");
+
+    await writeFile(join(projectRoot, "CLAUDE.md"), "Use npm.\n");
+    await expect(
+      execFileAsync(process.execPath, args, {
+        cwd: projectRoot,
+        timeout: 10_000,
+      }),
+    ).rejects.toMatchObject({ code: 1 });
+  }, 20_000);
 
   it("blocks an unreadable audit configuration instead of approving the budget", async () => {
     const root = await mkdtemp(join(tmpdir(), "ctxwise-budget-error-"));

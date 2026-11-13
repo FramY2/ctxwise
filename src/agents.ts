@@ -7,12 +7,17 @@ import {
   denyEntriesProtectClaudeSettings,
   extractPermissionsDenyList,
   hasPreToolUseHook,
+  isMcpServerDisabled,
+  parseMcpConfigServers,
 } from "./shield.js";
 
 export type SupportedAgentId = "claude" | "codex" | "cursor";
 
+/** Companion clients whose context files are tracked outside the three primary agents. */
+export type CompanionAgentId = "gemini" | "copilot";
+
 export interface AgentSurfaceFile {
-  agent: SupportedAgentId;
+  agent: SupportedAgentId | CompanionAgentId;
   kind:
     | "guidance"
     | "skill"
@@ -24,6 +29,8 @@ export interface AgentSurfaceFile {
   path: string;
   characters: number;
   estimatedTokens: number;
+  /** Active (non-disabled) MCP server names, populated for `mcp-config` files. */
+  mcpServers?: string[];
 }
 
 export interface AgentSurfaceSummary {
@@ -219,7 +226,7 @@ export async function auditMultiAgentSurface(options: {
 
   const addFile = async (
     bucket: AgentSurfaceFile[],
-    agent: SupportedAgentId,
+    agent: AgentSurfaceFile["agent"],
     kind: AgentSurfaceFile["kind"],
     fullPath: string,
     displayPrefix = "project",
@@ -233,13 +240,22 @@ export async function auditMultiAgentSurface(options: {
     if (kind === "guidance" || kind === "rule" || kind === "memory") {
       potentialSavings += compressMarkdownGuidance(raw).savedTokens;
     }
-    bucket.push({
+    const entry: AgentSurfaceFile = {
       agent,
       kind,
       path: `${displayPrefix}/${rel}`,
       characters: raw.length,
       estimatedTokens,
-    });
+    };
+    if (kind === "mcp-config") {
+      const servers = parseMcpConfigServers(raw);
+      entry.mcpServers = servers
+        ? Object.entries(servers)
+            .filter(([, server]) => !isMcpServerDisabled(server))
+            .map(([name]) => name)
+        : [];
+    }
+    bucket.push(entry);
   };
 
   const combinedDenyEntries: string[] = [];
@@ -310,6 +326,16 @@ export async function auditMultiAgentSurface(options: {
   );
   for (const file of claudeCommands) {
     await addFile(claudeSources, "claude", "command", file);
+  }
+
+  // Claude Code modular rules (.claude/rules/**/*.md) load alongside CLAUDE.md
+  const claudeRules = await walkFiles(
+    join(root, ".claude", "rules"),
+    (_p, name) => name.toLowerCase().endsWith(".md"),
+    4,
+  );
+  for (const file of claudeRules) {
+    await addFile(claudeSources, "claude", "rule", file);
   }
 
   const claudeSkills = await walkFiles(
@@ -500,14 +526,32 @@ export async function auditMultiAgentSurface(options: {
   for (const file of cursorMdcFiles) {
     await addFile(cursorSources, "cursor", "rule", file);
   }
+  await addFile(
+    cursorSources,
+    "cursor",
+    "mcp-config",
+    join(root, ".cursor", "mcp.json"),
+  );
 
-  // 4. Companion agent instruction surfaces (GEMINI.md, .github/copilot-instructions.md)
-  await addFile(companionSources, "codex", "guidance", join(root, "GEMINI.md"));
+  // 4. Companion agent instruction surfaces (GEMINI.md, .github/copilot-instructions.md, .vscode/mcp.json)
   await addFile(
     companionSources,
-    "codex",
+    "gemini",
+    "guidance",
+    join(root, "GEMINI.md"),
+  );
+  await addFile(
+    companionSources,
+    "copilot",
     "guidance",
     join(root, ".github", "copilot-instructions.md"),
+  );
+  // VS Code / GitHub Copilot agent mode reads MCP servers from .vscode/mcp.json ("servers" key)
+  await addFile(
+    companionSources,
+    "copilot",
+    "mcp-config",
+    join(root, ".vscode", "mcp.json"),
   );
 
   // Check parity between project CLAUDE.md and AGENTS.md
@@ -699,6 +743,13 @@ export async function syncAgentGuidance(options: {
 
 export function renderMultiAgentReport(report: MultiAgentReport): string {
   const { claude, codex, cursor } = report.agents;
+  const describeFile = (file: AgentSurfaceFile): string => {
+    const base = `- ~${file.estimatedTokens.toLocaleString("en-US")} tokens · ${file.kind} · ${file.path}`;
+    if (file.kind !== "mcp-config" || !file.mcpServers) return base;
+    const count = file.mcpServers.length;
+    const names = count > 0 ? `: ${file.mcpServers.join(", ")}` : "";
+    return `${base} (${count} MCP server${count === 1 ? "" : "s"}${names})`;
+  };
   const lines = [
     `CtxWise multi-agent · parity: ${report.parityStatus} · Claude ~${claude.estimatedStartupTokens.toLocaleString("en-US")} tokens (${claude.files} files) · Codex ~${codex.estimatedStartupTokens.toLocaleString("en-US")} tokens (${codex.files} files) · Cursor ~${cursor.estimatedStartupTokens.toLocaleString("en-US")} tokens (${cursor.files} files)`,
   ];
@@ -718,18 +769,14 @@ export function renderMultiAgentReport(report: MultiAgentReport): string {
     if (summary.sources.length === 0) continue;
     lines.push("", `${summary.agent.toUpperCase()} active context files:`);
     for (const file of summary.sources) {
-      lines.push(
-        `- ~${file.estimatedTokens.toLocaleString("en-US")} tokens · ${file.kind} · ${file.path}`,
-      );
+      lines.push(describeFile(file));
     }
   }
 
   if (report.companionSources && report.companionSources.length > 0) {
     lines.push("", "COMPANION active context files:");
     for (const file of report.companionSources) {
-      lines.push(
-        `- ~${file.estimatedTokens.toLocaleString("en-US")} tokens · ${file.kind} · ${file.path}`,
-      );
+      lines.push(describeFile(file));
     }
   }
 

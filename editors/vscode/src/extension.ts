@@ -4,6 +4,7 @@ import {
   analyzeWorkspaceContext,
   formatStatusBarText,
   formatStatusBarTooltip,
+  WATCHER_GLOB,
 } from "./analyzer.js";
 
 let statusBarItem: vscode.StatusBarItem | undefined;
@@ -101,9 +102,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.command = "ctxwise.runFullAudit";
   context.subscriptions.push(statusBarItem);
 
-  const watcher = vscode.workspace.createFileSystemWatcher(
-    "**/{CLAUDE.md,AGENTS.md,AGENTS.override.md,.cursorrules,.mcp.json,.codex/config.toml,.claude/settings.json,.claude/settings.local.json}",
-  );
+  const watcher = vscode.workspace.createFileSystemWatcher(WATCHER_GLOB);
   context.subscriptions.push(
     watcher,
     watcher.onDidCreate(() => refreshStatusBar()),

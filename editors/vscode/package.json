@@ -1,10 +1,15 @@
 {
   "name": "ctxwise-vscode",
   "displayName": "CtxWise — AI Context Firewall & MCP Token Profiler",
-  "description": "Live status-bar token profiler, Codex 32 KiB byte-cap monitor, MCP schema tax estimator, and secret shield for Claude Code, OpenAI Codex, and Cursor.",
-  "version": "1.1.1",
+  "description": "Live status-bar token profiler, Codex 32 KiB byte-cap monitor, MCP schema tax estimator, and secret shield for Claude Code, OpenAI Codex, Cursor, and VS Code MCP.",
+  "version": "1.2.0",
   "publisher": "FramY2",
   "license": "Apache-2.0",
+  "icon": "icon.png",
+  "homepage": "https://github.com/FramY2/ctxwise/tree/main/editors/vscode#readme",
+  "bugs": {
+    "url": "https://github.com/FramY2/ctxwise/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/FramY2/ctxwise.git",
@@ -32,6 +37,9 @@
     "workspaceContains:AGENTS.override.md",
     "workspaceContains:.cursorrules",
     "workspaceContains:.mcp.json",
+    "workspaceContains:.cursor/mcp.json",
+    "workspaceContains:.vscode/mcp.json",
+    "workspaceContains:.claude/rules/**/*.md",
     "workspaceContains:.codex/config.toml",
     "onStartupFinished"
   ],
@@ -57,8 +65,10 @@
     ]
   },
   "scripts": {
+    "vscode:prepublish": "npm run build",
     "build": "tsc -p tsconfig.json",
+    "compile": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --root ../.. tests/vscode-extension.test.ts"
+    "test": "vitest run --root ../.. tests/vscode-extension.test.ts tests/vscode-extension-parity.test.ts"
   }
 }

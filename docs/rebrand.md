@@ -48,4 +48,3 @@ before the next release.
 - Re-export `assets/brand/ctxwise-social-preview.png` from the SVG if GitHub
   still shows the old wordmark.
 - Publish `@framy2/ctxwise` and add a deprecation README on `@framy2/ctxray`.
-- Republication copy is in [republication-posts.md](republication-posts.md).

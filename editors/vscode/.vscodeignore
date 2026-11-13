@@ -1,0 +1,22 @@
+# Sources, tests, and build configuration are not shipped in the .vsix
+src/**
+test/**
+tests/**
+**/*.ts
+**/*.map
+tsconfig*.json
+.vitest*
+**/.vitest-cache/**
+vitest.config.*
+node_modules/**
+coverage/**
+.vscode/**
+.vscode-test/**
+.github/**
+.gitignore
+.eslintrc*
+.prettierrc*
+biome.json*
+*.vsix
+*.log
+*.tgz

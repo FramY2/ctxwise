@@ -1,18 +1,47 @@
-import { spawn } from "node:child_process";
+import {
+  spawn,
+  type ChildProcess,
+  type SpawnOptions,
+} from "node:child_process";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { parse as parseToml } from "smol-toml";
 
+import {
+  resolveSpawnInvocation,
+  type SpawnInvocation,
+} from "./codex-command.js";
+
 export interface McpServerDeclaration {
   name: string;
-  source: "project-mcp-json" | "claude-home" | "codex-project" | "codex-home";
+  source:
+    | "project-mcp-json"
+    | "cursor-mcp-json"
+    | "vscode-mcp-json"
+    | "claude-home"
+    | "codex-project"
+    | "codex-home";
   transport: "stdio" | "http" | "unknown";
   command?: string;
   args?: string[];
   url?: string;
+  /** Extra environment variables merged over `process.env` when probing. */
+  env?: Record<string, string>;
+  /** Working directory for the server process (resolved against the project root). */
+  cwd?: string;
 }
+
+/** Project-level JSON MCP configs, in precedence order. */
+export const PROJECT_JSON_MCP_CONFIGS: ReadonlyArray<{
+  relativePath: string[];
+  source: McpServerDeclaration["source"];
+}> = [
+  { relativePath: [".mcp.json"], source: "project-mcp-json" },
+  { relativePath: [".cursor", "mcp.json"], source: "cursor-mcp-json" },
+  { relativePath: [".vscode", "mcp.json"], source: "vscode-mcp-json" },
+];
 
 export interface McpToolSchemaMetric {
   server: string;
@@ -84,33 +113,177 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * Parse JSON that may contain `//` / `/* *\/` comments and trailing commas
+ * (JSONC, as accepted by VS Code and Cursor for `mcp.json`).
+ */
+export function parseJsonc(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // fall through to the tolerant parser
+  }
+  let withoutComments = "";
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]!;
+    const next = text[i + 1];
+    if (inString) {
+      withoutComments += char;
+      if (char === "\\") {
+        withoutComments += next ?? "";
+        i++;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      withoutComments += char;
+    } else if (char === "/" && next === "/") {
+      while (i < text.length && text[i] !== "\n") i++;
+      withoutComments += "\n";
+    } else if (char === "/" && next === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i++;
+    } else {
+      withoutComments += char;
+    }
+  }
+  let output = "";
+  inString = false;
+  for (let i = 0; i < withoutComments.length; i++) {
+    const char = withoutComments[i]!;
+    if (inString) {
+      output += char;
+      if (char === "\\") {
+        output += withoutComments[i + 1] ?? "";
+        i++;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') inString = true;
+    if (char === ",") {
+      let j = i + 1;
+      while (j < withoutComments.length && /\s/.test(withoutComments[j]!)) j++;
+      if (withoutComments[j] === "}" || withoutComments[j] === "]") continue;
+    }
+    output += char;
+  }
+  return JSON.parse(output);
+}
+
+/**
+ * Locate the server map inside a JSON MCP config. Claude Code and Cursor use
+ * `"mcpServers"`; VS Code's `.vscode/mcp.json` uses `"servers"`. Files with
+ * neither key are treated as a bare server map.
+ */
+function selectJsonServerContainer(raw: Record<string, unknown>): {
+  key: "mcpServers" | "servers" | null;
+  container: Record<string, unknown>;
+} {
+  if (raw.mcpServers && typeof raw.mcpServers === "object") {
+    return {
+      key: "mcpServers",
+      container: raw.mcpServers as Record<string, unknown>,
+    };
+  }
+  if (
+    raw.servers &&
+    typeof raw.servers === "object" &&
+    !Array.isArray(raw.servers)
+  ) {
+    return {
+      key: "servers",
+      container: raw.servers as Record<string, unknown>,
+    };
+  }
+  return { key: null, container: raw };
+}
+
+function substituteWorkspaceVariables(value: string, root: string): string {
+  return value.replace(/\$\{(?:workspaceFolder|workspaceRoot)\}/g, root);
+}
+
+function readStringRecord(
+  value: unknown,
+  root: string,
+): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(
+      (entry): entry is [string, string | number | boolean] =>
+        typeof entry[1] === "string" ||
+        typeof entry[1] === "number" ||
+        typeof entry[1] === "boolean",
+    )
+    .map(
+      ([key, item]) =>
+        [key, substituteWorkspaceVariables(String(item), root)] as const,
+    );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function resolveServerCwd(value: unknown, root: string): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const substituted = substituteWorkspaceVariables(value.trim(), root);
+  if (substituted === "~" || /^~[\\/]/.test(substituted)) {
+    return expandHomePath(substituted);
+  }
+  return isAbsolute(substituted)
+    ? resolve(substituted)
+    : resolve(root, substituted);
+}
+
+function buildDeclaration(
+  name: string,
+  record: Record<string, unknown>,
+  source: McpServerDeclaration["source"],
+  root: string,
+): McpServerDeclaration {
+  const command =
+    typeof record.command === "string" ? record.command : undefined;
+  const url = typeof record.url === "string" ? record.url : undefined;
+  const args = Array.isArray(record.args)
+    ? record.args
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => substituteWorkspaceVariables(item, root))
+    : undefined;
+  const env = readStringRecord(record.env, root);
+  const cwd = resolveServerCwd(record.cwd, root);
+  return {
+    name,
+    source,
+    transport: command ? "stdio" : url ? "http" : "unknown",
+    ...(command ? { command } : {}),
+    ...(args ? { args } : {}),
+    ...(url ? { url } : {}),
+    ...(env ? { env } : {}),
+    ...(cwd ? { cwd } : {}),
+  };
+}
+
 function extractJsonMcpServers(
   raw: Record<string, unknown>,
   source: McpServerDeclaration["source"],
+  root: string = process.cwd(),
 ): McpServerDeclaration[] {
-  const container =
-    raw.mcpServers && typeof raw.mcpServers === "object"
-      ? (raw.mcpServers as Record<string, unknown>)
-      : raw;
+  const { key, container } = selectJsonServerContainer(raw);
   const declarations: McpServerDeclaration[] = [];
   for (const [name, value] of Object.entries(container)) {
-    if (!value || typeof value !== "object") continue;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const record = value as Record<string, unknown>;
-    const command =
-      typeof record.command === "string" ? record.command : undefined;
-    const url = typeof record.url === "string" ? record.url : undefined;
-    const args = Array.isArray(record.args)
-      ? record.args.filter((item): item is string => typeof item === "string")
-      : undefined;
-    if (!command && !url && raw.mcpServers === undefined) continue;
-    declarations.push({
-      name,
-      source,
-      transport: command ? "stdio" : url ? "http" : "unknown",
-      ...(command ? { command } : {}),
-      ...(args ? { args } : {}),
-      ...(url ? { url } : {}),
-    });
+    const hasEndpoint =
+      typeof record.command === "string" || typeof record.url === "string";
+    if (!hasEndpoint && key === null) continue;
+    if (record.disabled === true) continue;
+    declarations.push(buildDeclaration(name, record, source, root));
   }
   return declarations;
 }
@@ -118,6 +291,7 @@ function extractJsonMcpServers(
 function extractTomlMcpServers(
   raw: Record<string, unknown>,
   source: McpServerDeclaration["source"],
+  root: string = process.cwd(),
 ): McpServerDeclaration[] {
   const mcp = raw.mcp_servers;
   if (!mcp || typeof mcp !== "object") return [];
@@ -126,20 +300,7 @@ function extractTomlMcpServers(
     if (!value || typeof value !== "object") continue;
     const record = value as Record<string, unknown>;
     if (record.enabled === false) continue;
-    const command =
-      typeof record.command === "string" ? record.command : undefined;
-    const url = typeof record.url === "string" ? record.url : undefined;
-    const args = Array.isArray(record.args)
-      ? record.args.filter((item): item is string => typeof item === "string")
-      : undefined;
-    declarations.push({
-      name,
-      source,
-      transport: command ? "stdio" : url ? "http" : "unknown",
-      ...(command ? { command } : {}),
-      ...(args ? { args } : {}),
-      ...(url ? { url } : {}),
-    });
+    declarations.push(buildDeclaration(name, record, source, root));
   }
   return declarations;
 }
@@ -152,13 +313,25 @@ export async function discoverMcpDeclarations(options: {
   const root = resolve(options.projectRoot);
   const declarations: McpServerDeclaration[] = [];
 
-  const projectMcpJson = join(root, ".mcp.json");
-  if (await exists(projectMcpJson)) {
+  const seenProjectJsonServers = new Set<string>();
+  for (const config of PROJECT_JSON_MCP_CONFIGS) {
+    const configPath = join(root, ...config.relativePath);
+    if (!(await exists(configPath))) continue;
     try {
-      const parsed = JSON.parse(
-        await readFile(projectMcpJson, "utf8"),
-      ) as Record<string, unknown>;
-      declarations.push(...extractJsonMcpServers(parsed, "project-mcp-json"));
+      const parsed = parseJsonc(await readFile(configPath, "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        continue;
+      }
+      for (const decl of extractJsonMcpServers(
+        parsed as Record<string, unknown>,
+        config.source,
+        root,
+      )) {
+        // The same server is often mirrored across editors; count it once.
+        if (seenProjectJsonServers.has(decl.name)) continue;
+        seenProjectJsonServers.add(decl.name);
+        declarations.push(decl);
+      }
     } catch {
       // Ignore malformed JSON here; handled by audit/shield
     }
@@ -178,7 +351,9 @@ export async function discoverMcpDeclarations(options: {
           projectCodexNames.add(name);
         }
       }
-      declarations.push(...extractTomlMcpServers(parsed, "codex-project"));
+      declarations.push(
+        ...extractTomlMcpServers(parsed, "codex-project", root),
+      );
     } catch {
       // Ignore malformed TOML
     }
@@ -192,7 +367,7 @@ export async function discoverMcpDeclarations(options: {
           string,
           unknown
         >;
-        for (const decl of extractTomlMcpServers(parsed, "codex-home")) {
+        for (const decl of extractTomlMcpServers(parsed, "codex-home", root)) {
           if (projectCodexNames.has(decl.name)) continue;
           declarations.push(decl);
         }
@@ -211,7 +386,7 @@ export async function discoverMcpDeclarations(options: {
           string,
           unknown
         >;
-        for (const decl of extractJsonMcpServers(parsed, "claude-home")) {
+        for (const decl of extractJsonMcpServers(parsed, "claude-home", root)) {
           if (seenClaudeServers.has(decl.name)) continue;
           seenClaudeServers.add(decl.name);
           declarations.push(decl);
@@ -332,84 +507,213 @@ export function analyzeMcpToolsPayload(
   );
 }
 
+export interface ProbeStdioOptions {
+  /** Hard deadline for the whole handshake (default 2500 ms). */
+  timeoutMs?: number;
+  /** Base directory for a relative `cwd` (default `process.cwd()`). */
+  repoRoot?: string;
+  /** Base environment the declaration's `env` is merged over (default `process.env`). */
+  baseEnv?: Record<string, string | undefined>;
+  /** Platform override, for tests. */
+  platform?: NodeJS.Platform;
+  /** Command resolver override, for tests. */
+  resolveCommand?: typeof resolveSpawnInvocation;
+  /** `spawn` override, for tests. */
+  spawnImpl?: (
+    command: string,
+    args: string[],
+    options: SpawnOptions,
+  ) => ChildProcess;
+}
+
+const MCP_PROTOCOL_VERSION = "2024-11-05";
+
+/**
+ * Launch a stdio MCP server and read its `tools/list` schemas.
+ *
+ * The handshake is strictly sequential, as the MCP lifecycle requires:
+ * `initialize` (id 1) → wait for its response → `notifications/initialized`
+ * → `tools/list` (id 2) → resolve on the id 2 response. The child always runs
+ * with `shell: false`; on Windows the command is first resolved to a native
+ * executable or `node <entry-script>` (see `resolveSpawnInvocation`). Any
+ * failure, error response, or timeout yields `[]` and the child is killed.
+ */
 export async function probeStdioMcpServer(
   declaration: McpServerDeclaration,
-  timeoutMs = 2500,
+  timeoutOrOptions: number | ProbeStdioOptions = 2500,
 ): Promise<McpToolSchemaMetric[]> {
+  const options: ProbeStdioOptions =
+    typeof timeoutOrOptions === "number"
+      ? { timeoutMs: timeoutOrOptions }
+      : timeoutOrOptions;
+  const timeoutMs = options.timeoutMs ?? 2500;
   const command = declaration.command;
   if (declaration.transport !== "stdio" || !command) return [];
   const args = declaration.args ?? [];
+
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(options.baseEnv ?? process.env)) {
+    if (typeof value === "string") env[key] = value;
+  }
+  Object.assign(env, declaration.env ?? {});
+  const repoRoot = resolve(options.repoRoot ?? process.cwd());
+  const cwd = declaration.cwd ? resolve(repoRoot, declaration.cwd) : undefined;
+
+  let invocation: SpawnInvocation;
+  try {
+    invocation = await (options.resolveCommand ?? resolveSpawnInvocation)(
+      command,
+      args,
+      {
+        env,
+        cwd: cwd ?? repoRoot,
+        ...(options.platform ? { platform: options.platform } : {}),
+      },
+    );
+  } catch {
+    return [];
+  }
+  // Never fall back to a shell: an unresolvable Windows command fails closed.
+  if (invocation.source === "unresolved") return [];
+
+  const spawnImpl =
+    options.spawnImpl ??
+    ((cmd: string, cmdArgs: string[], spawnOptions: SpawnOptions) =>
+      spawn(cmd, cmdArgs, spawnOptions));
+
   return new Promise<McpToolSchemaMetric[]>((resolveProbe) => {
     let settled = false;
+    let child: ChildProcess | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     const finish = (result: McpToolSchemaMetric[]) => {
       if (settled) return;
       settled = true;
-      resolveProbe(result);
+      if (timer) clearTimeout(timer);
+      try {
+        child?.stdin?.end();
+      } catch {
+        // already closed
+      }
+      const running =
+        child !== undefined &&
+        child.pid !== undefined &&
+        child.exitCode === null &&
+        child.signalCode === null;
+      if (!running) {
+        resolveProbe(result);
+        return;
+      }
+      // Resolve only once the child has actually exited (bounded), so no
+      // probe outlives the call or keeps its cwd locked on Windows.
+      const grace = setTimeout(() => resolveProbe(result), 1500);
+      child!.once("exit", () => {
+        clearTimeout(grace);
+        resolveProbe(result);
+      });
+      try {
+        child!.kill();
+      } catch {
+        clearTimeout(grace);
+        resolveProbe(result);
+      }
     };
 
-    const child = spawn(command, args, {
-      shell: false,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "ignore"],
-    });
+    timer = setTimeout(() => finish([]), timeoutMs);
 
-    const timer = setTimeout(() => {
-      child.kill();
+    try {
+      child = spawnImpl(invocation.command, invocation.args, {
+        shell: false,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "ignore"],
+        env,
+        ...(cwd ? { cwd } : {}),
+      });
+    } catch {
       finish([]);
-    }, timeoutMs);
+      return;
+    }
 
+    const send = (message: Record<string, unknown>): boolean => {
+      if (settled) return false;
+      try {
+        child?.stdin?.write(`${JSON.stringify(message)}\n`);
+        return true;
+      } catch {
+        finish([]);
+        return false;
+      }
+    };
+
+    child.on("error", () => finish([]));
+    child.on("close", () => finish([]));
+    child.stdin?.on("error", () => finish([]));
+
+    let initialized = false;
     let buffer = "";
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      buffer += chunk.toString();
-      const lines = buffer.split(/\r?\n/);
-      for (const line of lines) {
-        if (!line.trim().startsWith("{")) continue;
-        try {
-          const parsed = JSON.parse(line) as Record<string, unknown>;
-          if (parsed.id === 2 && parsed.result) {
-            clearTimeout(timer);
-            child.kill();
-            finish(analyzeMcpToolsPayload(parsed, declaration.name));
-            return;
-          }
-        } catch {
-          // Wait for complete JSON line
+    const handleMessage = (message: Record<string, unknown>) => {
+      // Server → client request (e.g. `ping`, `roots/list`): answer politely
+      // so strict servers do not stall waiting on us.
+      if (typeof message.method === "string") {
+        if (message.id !== undefined && message.id !== null) {
+          send(
+            message.method === "ping"
+              ? { jsonrpc: "2.0", id: message.id, result: {} }
+              : {
+                  jsonrpc: "2.0",
+                  id: message.id,
+                  error: { code: -32601, message: "Method not found" },
+                },
+          );
         }
+        return;
+      }
+      if (message.id === 1 && !initialized) {
+        if (!message.result || message.error) {
+          finish([]);
+          return;
+        }
+        initialized = true;
+        send({ jsonrpc: "2.0", method: "notifications/initialized" });
+        send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+        return;
+      }
+      if (message.id === 2 && initialized) {
+        finish(
+          message.result && !message.error
+            ? analyzeMcpToolsPayload(message, declaration.name)
+            : [],
+        );
+      }
+    };
+
+    child.stdout?.on("data", (chunk: Buffer | string) => {
+      buffer += chunk.toString();
+      let newline = buffer.indexOf("\n");
+      while (newline !== -1 && !settled) {
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (line.startsWith("{")) {
+          try {
+            handleMessage(JSON.parse(line) as Record<string, unknown>);
+          } catch {
+            // Ignore non-JSON log noise on stdout
+          }
+        }
+        newline = buffer.indexOf("\n");
       }
     });
 
-    child.on("error", () => {
-      clearTimeout(timer);
-      finish([]);
-    });
-
-    child.on("close", () => {
-      clearTimeout(timer);
-      finish([]);
-    });
-
-    const initMsg = JSON.stringify({
+    send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
       params: {
-        protocolVersion: "2024-11-05",
+        protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: "ctxwise-mcp-xray", version: "1.0.0" },
       },
     });
-    const listMsg = JSON.stringify({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/list",
-      params: {},
-    });
-    try {
-      child.stdin.write(`${initMsg}\n${listMsg}\n`);
-    } catch {
-      clearTimeout(timer);
-      finish([]);
-    }
   });
 }
 
@@ -594,15 +898,20 @@ export async function pruneMcpServers(options: {
   const disabledServers = new Set<string>();
 
   if (requestedDisable.length > 0) {
-    const projectMcpJson = join(root, ".mcp.json");
-    if (await exists(projectMcpJson)) {
+    for (const config of PROJECT_JSON_MCP_CONFIGS) {
+      const jsonPath = join(root, ...config.relativePath);
+      if (!(await exists(jsonPath))) continue;
       try {
-        const rawText = await readFile(projectMcpJson, "utf8");
-        const parsed = JSON.parse(rawText) as Record<string, unknown>;
-        const container =
-          parsed.mcpServers && typeof parsed.mcpServers === "object"
-            ? (parsed.mcpServers as Record<string, unknown>)
-            : parsed;
+        const rawText = await readFile(jsonPath, "utf8");
+        const parsed = parseJsonc(rawText);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          continue;
+        }
+        // Edits the container in place, so whichever top-level key the file
+        // used ("mcpServers" or VS Code's "servers") is preserved on write.
+        const { container } = selectJsonServerContainer(
+          parsed as Record<string, unknown>,
+        );
         const removedHere: string[] = [];
         for (const name of requestedDisable) {
           if (Object.prototype.hasOwnProperty.call(container, name)) {
@@ -612,20 +921,19 @@ export async function pruneMcpServers(options: {
           }
         }
         if (removedHere.length > 0) {
-          const backupPath =
-            !dryRun && createBackup ? `${projectMcpJson}.bak` : null;
+          const backupPath = !dryRun && createBackup ? `${jsonPath}.bak` : null;
           if (!dryRun) {
             if (backupPath) {
               await writeFile(backupPath, rawText, "utf8");
             }
             await writeFile(
-              projectMcpJson,
+              jsonPath,
               `${JSON.stringify(parsed, null, 2)}\n`,
               "utf8",
             );
           }
           modifiedFiles.push({
-            path: projectMcpJson,
+            path: jsonPath,
             backupPath,
             disabledServers: removedHere,
             dryRun,
@@ -704,7 +1012,7 @@ export async function pruneMcpServers(options: {
   if (requestedDisable.length === 0) {
     if (candidateServers.length > 0) {
       recommendations.push(
-        `Run \`ctxwise mcp-prune --disable ${candidateServers.slice(0, 3).join(",")}\` (add \`--dry-run\` to preview) to disable unused MCP servers in .mcp.json / .codex/config.toml.`,
+        `Run \`ctxwise mcp-prune --disable ${candidateServers.slice(0, 3).join(",")}\` (add \`--dry-run\` to preview) to disable unused MCP servers in .mcp.json / .cursor/mcp.json / .vscode/mcp.json / .codex/config.toml.`,
       );
     } else {
       recommendations.push(
@@ -713,7 +1021,7 @@ export async function pruneMcpServers(options: {
     }
   } else if (disabledServers.size === 0) {
     recommendations.push(
-      `None of the requested servers (${requestedDisable.join(", ")}) were active in project .mcp.json or Codex config.toml.`,
+      `None of the requested servers (${requestedDisable.join(", ")}) were active in project .mcp.json, .cursor/mcp.json, .vscode/mcp.json, or Codex config.toml.`,
     );
   }
 

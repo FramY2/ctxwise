@@ -322,7 +322,7 @@
     <div class="container">
       <header>
         <div class="badge-row">
-          <span class="pill">🛡️ @framy2/ctxwise v1.1.0</span>
+          <span class="pill">🛡️ @framy2/ctxwise v1.2.0</span>
           <span class="pill cyan">⚡ @framy2/mcp-diet v0.1.0</span>
           <span class="pill">🔌 @framy2/agent-wire-tap v0.1.0</span>
           <span class="pill cyan">100% Client-Side · Zero Telemetry</span>
@@ -391,7 +391,7 @@
           <textarea id="guidanceInput" oninput="recalculate()"></textarea>
 
           <label class="field-label" for="mcpInput"
-            >.mcp.json / .claude/settings.json Content</label
+            >.mcp.json / .vscode/mcp.json / .claude/settings.json Content</label
           >
           <textarea id="mcpInput" oninput="recalculate()"></textarea>
         </div>
@@ -474,7 +474,7 @@
           <div class="card">
             <h2>
               <a href="https://github.com/FramY2/ctxwise">@framy2/ctxwise</a>
-              <span class="pill">v1.1.1</span>
+              <span class="pill">v1.2.0</span>
             </h2>
             <p style="color: var(--muted); font-size: 0.9rem">
               Static AI Context Firewall, MCP Schema Tree-Shaker
@@ -681,11 +681,15 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         },
       };
 
+      // Verified list prices (USD per 1M input tokens), CtxWise catalog 2026-11-11.
       const MODELS = [
-        { name: "Claude Opus 4.7", inputPerM: 15.0 },
-        { name: "GPT-6-Luna", inputPerM: 10.0 },
+        { name: "Claude Opus 4.7", inputPerM: 5.0 },
+        { name: "Claude Opus 5.5", inputPerM: 4.0 },
         { name: "Claude Sonnet 4.6", inputPerM: 3.0 },
-        { name: "GPT-6.1-Sol", inputPerM: 2.5 },
+        { name: "Claude Sonnet 5.5", inputPerM: 2.0 },
+        { name: "GPT-6-Astra", inputPerM: 10.0 },
+        { name: "GPT-6.1-Sol", inputPerM: 2.0 },
+        { name: "GPT-6-Luna", inputPerM: 0.1 },
       ];
 
       function isPlaceholderMatch(matchText, lineText) {
@@ -875,7 +879,8 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
             if (parsed.disableAllHooks === true) {
               disableAllHooksInSettings = true;
             }
-            const servers = parsed.mcpServers || {};
+            // Claude Code / Cursor use "mcpServers"; VS Code .vscode/mcp.json uses "servers".
+            const servers = parsed.mcpServers ?? parsed.servers ?? {};
             if (
               servers &&
               typeof servers === "object" &&

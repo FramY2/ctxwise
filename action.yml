@@ -3,19 +3,23 @@ description: "Audit CLAUDE.md, AGENTS.md, Cursor rules, and MCP schemas. Block s
 author: "FramY2"
 branding:
   icon: "shield"
-  color: "purple"
+  color: "blue"
 
 inputs:
   max-known-tokens:
-    description: "Maximum estimated startup token budget (set to 0 to skip budget check)"
+    description: "Maximum estimated startup token budget for the heaviest agent session (set to 0 to skip the budget check). Ignored when a budget policy file is used."
     required: false
     default: "4000"
+  budget-policy:
+    description: "Path to a versioned YAML budget policy. When empty, ./ctxwise.budget.yaml (written by `ctxwise init` / `ctxwise preset`) is used automatically if it exists."
+    required: false
+    default: ""
   fail-on-secrets:
     description: "Fail the workflow if hardcoded API keys, prompt injection, or hidden Unicode are detected in agent context files"
     required: false
     default: "true"
   check-agent-parity:
-    description: "Report multi-agent context surface across Claude Code, OpenAI Codex, and Cursor"
+    description: "Report the multi-agent context surface across Claude Code, OpenAI Codex, and Cursor, and fail when CLAUDE.md and AGENTS.md have diverged (`ctxwise agents --fail-on-divergence`)"
     required: false
     default: "true"
   node-version:
@@ -37,12 +41,15 @@ runs:
 
     - name: Run CtxWise Context Shield (Secret & Prompt-Injection Guard)
       shell: bash
+      env:
+        CTXWISE_SARIF_FILE: ${{ inputs.sarif-file }}
+        CTXWISE_FAIL_ON_SECRETS: ${{ inputs.fail-on-secrets }}
       run: |
         SARIF_ARGS=()
-        if [ -n "${{ inputs.sarif-file }}" ]; then
-          SARIF_ARGS=(--sarif "${{ inputs.sarif-file }}")
+        if [ -n "$CTXWISE_SARIF_FILE" ]; then
+          SARIF_ARGS=(--sarif "$CTXWISE_SARIF_FILE")
         fi
-        if [ "${{ inputs.fail-on-secrets }}" = "true" ]; then
+        if [ "$CTXWISE_FAIL_ON_SECRETS" = "true" ]; then
           npx --yes @framy2/ctxwise shield "${SARIF_ARGS[@]}" --fail-on-risk
         else
           npx --yes @framy2/ctxwise shield "${SARIF_ARGS[@]}"
@@ -51,9 +58,104 @@ runs:
     - name: Run Multi-Agent Context Surface Audit (Claude Code + Codex + Cursor)
       if: ${{ inputs.check-agent-parity == 'true' }}
       shell: bash
-      run: npx --yes @framy2/ctxwise agents
+      run: npx --yes @framy2/ctxwise agents --fail-on-divergence
 
     - name: Enforce Startup Token Budget
-      if: ${{ inputs.max-known-tokens != '0' }}
       shell: bash
-      run: npx --yes @framy2/ctxwise budget --max-known-tokens "${{ inputs.max-known-tokens }}" --fail-on-exceed
+      env:
+        CTXWISE_BUDGET_POLICY: ${{ inputs.budget-policy }}
+        CTXWISE_MAX_KNOWN_TOKENS: ${{ inputs.max-known-tokens }}
+      run: |
+        if [ -n "$CTXWISE_BUDGET_POLICY" ]; then
+          npx --yes @framy2/ctxwise budget --policy "$CTXWISE_BUDGET_POLICY" --fail-on-exceed
+        elif [ -f "./ctxwise.budget.yaml" ]; then
+          echo "Using auto-detected ./ctxwise.budget.yaml"
+          npx --yes @framy2/ctxwise budget --policy "./ctxwise.budget.yaml" --fail-on-exceed
+        elif [ "$CTXWISE_MAX_KNOWN_TOKENS" != "0" ]; then
+          npx --yes @framy2/ctxwise budget --max-known-tokens "$CTXWISE_MAX_KNOWN_TOKENS" --fail-on-exceed
+        else
+          echo "Budget check skipped (max-known-tokens is 0 and no budget policy was found)."
+        fi
+
+    - name: Write CtxWise job summary
+      if: ${{ always() }}
+      shell: bash
+      env:
+        CTXWISE_BUDGET_POLICY: ${{ inputs.budget-policy }}
+        CTXWISE_MAX_KNOWN_TOKENS: ${{ inputs.max-known-tokens }}
+      run: |
+        if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then
+          echo "GITHUB_STEP_SUMMARY is not set; skipping the job summary."
+          exit 0
+        fi
+        TMP_DIR="${RUNNER_TEMP:-/tmp}/ctxwise-summary"
+        mkdir -p "$TMP_DIR"
+        npx --yes @framy2/ctxwise shield --json > "$TMP_DIR/shield.json" 2>/dev/null || true
+        npx --yes @framy2/ctxwise agents --json > "$TMP_DIR/agents.json" 2>/dev/null || true
+        BUDGET_ARGS=()
+        if [ -n "$CTXWISE_BUDGET_POLICY" ]; then
+          BUDGET_ARGS=(--policy "$CTXWISE_BUDGET_POLICY")
+        elif [ -f "./ctxwise.budget.yaml" ]; then
+          BUDGET_ARGS=(--policy "./ctxwise.budget.yaml")
+        elif [ "$CTXWISE_MAX_KNOWN_TOKENS" != "0" ]; then
+          BUDGET_ARGS=(--max-known-tokens "$CTXWISE_MAX_KNOWN_TOKENS")
+        fi
+        if [ ${#BUDGET_ARGS[@]} -gt 0 ]; then
+          npx --yes @framy2/ctxwise budget "${BUDGET_ARGS[@]}" --json > "$TMP_DIR/budget.json" 2>/dev/null || true
+        fi
+        CTXWISE_SUMMARY_DIR="$TMP_DIR" node --input-type=module - >> "$GITHUB_STEP_SUMMARY" <<'NODE'
+        import { readFileSync } from "node:fs";
+        import { join } from "node:path";
+        const dir = process.env.CTXWISE_SUMMARY_DIR;
+        const read = (name) => {
+          try {
+            return JSON.parse(readFileSync(join(dir, name), "utf8"));
+          } catch {
+            return null;
+          }
+        };
+        const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : "n/a");
+        const shield = read("shield.json");
+        const agents = read("agents.json");
+        const budget = read("budget.json");
+        const lines = ["## 🛡️ CtxWise context report", ""];
+        if (shield?.summary) {
+          const s = shield.summary;
+          const risky = (s.critical ?? 0) + (s.high ?? 0);
+          lines.push(
+            `**Shield:** ${risky > 0 ? "❌ risks found" : s.total > 0 ? "⚠️ warnings" : "✅ clean"} · ${fmt(s.critical ?? 0)} critical · ${fmt(s.high ?? 0)} high · ${fmt(s.medium ?? 0)} medium · ${fmt(s.low ?? 0)} low`,
+          );
+        } else {
+          lines.push("**Shield:** n/a");
+        }
+        lines.push("");
+        if (agents?.agents) {
+          lines.push(
+            `**Multi-agent parity:** ${agents.parityStatus === "diverged" ? "❌ diverged" : agents.parityStatus}`,
+            "",
+            "| Agent | Files | Est. startup tokens |",
+            "| --- | ---: | ---: |",
+          );
+          for (const [id, label] of [["claude", "Claude Code"], ["codex", "OpenAI Codex"], ["cursor", "Cursor"]]) {
+            const a = agents.agents[id];
+            if (a) lines.push(`| ${label} | ${fmt(a.files)} | ~${fmt(a.estimatedStartupTokens)} |`);
+          }
+          lines.push("");
+        }
+        if (budget?.status) {
+          const icon = budget.status === "within-budget" ? "✅" : budget.status === "over-budget" ? "❌" : "⚠️";
+          const limit = budget.limits?.maxKnownTokens;
+          const heaviest = budget.agentBreakdown?.budgetedAgent;
+          lines.push(
+            `**Budget:** ${icon} ${budget.status} · ~${fmt(budget.estimatedKnownStartupTokens)} known startup tokens${limit !== undefined ? ` / ${fmt(limit)} limit` : ""}${heaviest ? ` (heaviest agent: ${heaviest})` : ""}${budget.policy ? ` · policy \`${budget.policy}\`` : ""}`,
+          );
+        } else {
+          lines.push("**Budget:** skipped");
+        }
+        lines.push(
+          "",
+          "<sub>All counts are local estimates. Generated by [CtxWise](https://github.com/FramY2/ctxwise).</sub>",
+          "",
+        );
+        process.stdout.write(lines.join("\n"));
+        NODE
