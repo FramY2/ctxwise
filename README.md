@@ -214,6 +214,8 @@ Read the [method and limitations](benchmarks/results/2026-08-09-v1/report.md) or
 | `ctxwise receipt`      | Calculates an honest receipt from saved `codex exec --json` usage                              | None                        |
 | `ctxwise run`          | Runs Codex and appends exact usage plus an optional pre-turn prompt X-Ray                      | Requested Codex turn        |
 
+New to profiles? Follow the [lean-profile walkthrough](docs/tutorials/lean-profile.md): it turns a real `audit` finding into a reviewable lean profile, end to end.
+
 ---
 
 ## 🤝 Contribute a Stack Preset in 5 Minutes

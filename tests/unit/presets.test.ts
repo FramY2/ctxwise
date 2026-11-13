@@ -8,7 +8,9 @@ import {
   applyPresetToProject,
   listBuiltInPresets,
   parsePresetYaml,
+  PRESET_ALIASES,
   renderPresetGuidanceMarkdown,
+  resolvePresetName,
 } from "../../src/presets.js";
 import { withTempDir } from "../support/temp.js";
 
@@ -63,6 +65,40 @@ describe("Community Stack Presets", () => {
           projectRoot: root,
         }),
       ).rejects.toThrow(/Unknown preset/);
+    });
+  });
+
+  describe("PRESET_ALIASES", () => {
+    const aliases = Object.entries(PRESET_ALIASES);
+
+    it("has at least one alias", () => {
+      expect(aliases.length).toBeGreaterThan(0);
+    });
+
+    it.each(aliases)(
+      "alias %s points at the built-in preset %s",
+      async (alias, target) => {
+        const names = (await listBuiltInPresets()).map((p) => p.name);
+        expect(
+          names,
+          `alias "${alias}" -> missing preset "${target}"`,
+        ).toContain(target);
+        expect(resolvePresetName(alias)).toBe(target);
+      },
+    );
+
+    it("never shadows a real preset name", async () => {
+      const names = new Set((await listBuiltInPresets()).map((p) => p.name));
+      const shadowing = Object.keys(PRESET_ALIASES).filter((alias) =>
+        names.has(alias),
+      );
+      expect(shadowing).toEqual([]);
+    });
+
+    it("resolves aliases case- and whitespace-insensitively", () => {
+      expect(resolvePresetName("  NextJS ")).toBe("nextjs-typescript");
+      expect(resolvePresetName("\tTurboRepo\n")).toBe("monorepo-turbo");
+      expect(resolvePresetName(" Rust-Cargo ")).toBe("rust-cargo");
     });
   });
 });

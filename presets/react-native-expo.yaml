@@ -1,0 +1,15 @@
+name: react-native-expo
+stack: React Native + Expo + TypeScript
+description: Lean context budget and Expo Router, native-module, and secret-handling rules for mobile apps.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - Use Expo Router file-based routes with typed route params; keep screens thin and move state and data logic into hooks.
+  - Install every native dependency with `npx expo install` so versions match the SDK; avoid packages that need custom native code without a config plugin.
+  - Never embed API secrets in the app bundle or `EXPO_PUBLIC_` variables (they ship in plaintext); store user tokens with `expo-secure-store`.
+  - Reach device APIs through Expo SDK modules (expo-camera, expo-location, and friends) instead of hand-wired native modules.
+  - Before marking any task complete, run `npx tsc --noEmit`, `npx expo lint`, and the test suite.

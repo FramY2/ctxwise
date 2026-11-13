@@ -1,0 +1,15 @@
+name: flutter-riverpod
+stack: Flutter + Dart 3 + Riverpod
+description: Lean context budget and state-management rules for Flutter apps using Riverpod.
+budget:
+  maxKnownTokens: 2600
+  maxContributorTokens: 950
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Keep widget `build` methods declarative; move business logic and side effects into Riverpod providers backed by `Notifier` or `AsyncNotifier`."
+  - "Use `ref.watch` for reactive dependencies in `build` and `ref.read` in event handlers; never call `ref.watch` conditionally."
+  - "Handle each `AsyncValue` state explicitly in the UI with loading, data, and error branches; do not force-unwrap pending async values."
+  - "Prefer immutable models and `const` constructors; derive state with providers instead of duplicating mutable values in widgets."
+  - "Run `dart format --set-exit-if-changed .`, `flutter analyze`, and `flutter test`; cover provider state transitions and async failures."
