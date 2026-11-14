@@ -23,6 +23,7 @@ const capabilityLockSchema = z
       .strict(),
     generatedAt: z.string().datetime({ offset: true }),
     provenance: z.literal("local-files"),
+    includeMultiAgent: z.boolean().optional(),
     entries: z.array(capabilityLockEntrySchema),
   })
   .strict();
@@ -86,8 +87,13 @@ export function parseCapabilityLock(value: unknown): CapabilityLock {
       },
     );
   }
-  indexEntries(parsed.data.entries);
-  return parsed.data;
+  const { includeMultiAgent, ...rest } = parsed.data;
+  const lock: CapabilityLock = {
+    ...rest,
+    ...(includeMultiAgent === undefined ? {} : { includeMultiAgent }),
+  };
+  indexEntries(lock.entries);
+  return lock;
 }
 
 export function compareCapabilityLocks(

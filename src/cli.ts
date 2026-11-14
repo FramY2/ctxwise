@@ -46,6 +46,11 @@ import {
   parseCapabilityLock,
   type CapabilityDriftChange,
 } from "./drift.js";
+import {
+  evaluateDriftPolicy,
+  parseDriftPolicy,
+  renderDriftPolicyReport,
+} from "./drift-policy.js";
 import { parseExecJsonl } from "./events.js";
 import { buildCapabilityLock } from "./lockfile.js";
 import {
@@ -571,20 +576,24 @@ program
   .option("--codex-home <path>", "Codex home directory")
   .option("--project <path>", "Explicit project root; auto-detected by default")
   .option("--out <file>", "Output path", "ctxwise.lock.json")
+  .option(
+    "--all-agents",
+    "Include Claude Code, Cursor, and MCP project surfaces in the lockfile",
+    false,
+  )
   .action(async (options) => {
     const home = codexHome(options.codexHome);
     const scope = await commandProjectScope(home, options.project);
     const lock = await buildCapabilityLock({
       codexHome: home,
       ...scope,
+      ...(options.allAgents ? { includeMultiAgent: true } : {}),
     });
-    await writeFile(
-      resolve(options.out),
-      `${JSON.stringify(lock, null, 2)}\n`,
-      "utf8",
-    );
+    const destination = resolve(options.out);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
     process.stdout.write(
-      `Wrote ${resolve(options.out)} (${lock.entries.length} entries)\n`,
+      `Wrote ${destination} (${lock.entries.length} entries)\n`,
     );
   });
 
@@ -603,33 +612,87 @@ program
     "--project <path>",
     "Explicit project root for a live comparison; auto-detected by default",
   )
+  .option(
+    "--all-agents",
+    "Include Claude Code, Cursor, and MCP project surfaces in live comparison",
+    false,
+  )
+  .option(
+    "--policy <file>",
+    "Versioned YAML fail-closed drift policy with reviewed path rules",
+  )
   .option("--json", "Print structured JSON", false)
-  .option("--fail-on-drift", "Exit with status 2 when drift is detected", false)
+  .option(
+    "--fail-on-drift",
+    "Exit with status 2 when drift is detected (or when the drift policy blocks)",
+    false,
+  )
   .action(async (baselinePath: string, options) => {
     const baseline = parseCapabilityLock(
       JSON.parse(await readFile(resolve(baselinePath), "utf8")),
     );
     let current;
+    let projectRootForPolicy: string | undefined;
     if (options.current) {
       current = parseCapabilityLock(
         JSON.parse(await readFile(resolve(options.current), "utf8")),
       );
+      if (options.project) {
+        projectRootForPolicy = resolve(options.project);
+      }
     } else {
       const home = codexHome(options.codexHome);
       const scope = await commandProjectScope(home, options.project);
-      current = await buildCapabilityLock({ codexHome: home, ...scope });
+      projectRootForPolicy = scope.projectRoot;
+      const includeMultiAgent =
+        Boolean(options.allAgents) || Boolean(baseline.includeMultiAgent);
+      current = await buildCapabilityLock({
+        codexHome: home,
+        ...scope,
+        ...(includeMultiAgent ? { includeMultiAgent: true } : {}),
+      });
     }
     const report = compareCapabilityLocks(baseline, current);
-    if (options.json) printJson(report);
-    else {
-      const { summary } = report;
-      process.stdout.write(
-        `CtxWise drift · ${report.status} · ${summary.total} changes (+${summary.added} -${summary.removed} ~${summary.changed}) · ${summary.bytesDelta >= 0 ? "+" : ""}${summary.bytesDelta.toLocaleString("en-US")} bytes\n`,
-      );
-      for (const change of report.changes)
-        process.stdout.write(`${renderDriftChange(change)}\n`);
+
+    if (!options.policy) {
+      if (options.json) printJson(report);
+      else {
+        const { summary } = report;
+        process.stdout.write(
+          `CtxWise drift · ${report.status} · ${summary.total} changes (+${summary.added} -${summary.removed} ~${summary.changed}) · ${summary.bytesDelta >= 0 ? "+" : ""}${summary.bytesDelta.toLocaleString("en-US")} bytes\n`,
+        );
+        for (const change of report.changes)
+          process.stdout.write(`${renderDriftChange(change)}\n`);
+      }
+      if (options.failOnDrift && report.status === "drifted") {
+        process.exitCode = 2;
+      }
+      return;
     }
-    if (options.failOnDrift && report.status === "drifted") {
+
+    const policyPath = resolve(options.policy);
+    const policy = parseDriftPolicy(await readFile(policyPath, "utf8"));
+    const evaluation = evaluateDriftPolicy(report, policy);
+    const policyLabel = relativeDisplayPath(
+      projectRootForPolicy ?? process.cwd(),
+      policyPath,
+    );
+
+    if (options.json) {
+      printJson({
+        ...report,
+        policy: {
+          path: policyLabel,
+          ...evaluation,
+        },
+      });
+    } else {
+      process.stdout.write(
+        renderDriftPolicyReport(report, evaluation, policyLabel),
+      );
+    }
+
+    if (options.failOnDrift && evaluation.blocking) {
       process.exitCode = 2;
     }
   });

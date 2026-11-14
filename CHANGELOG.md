@@ -5,6 +5,28 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-14
+
+### Added
+
+- **Fail-closed Drift Policy (`ctxwise drift --policy`) — Fixes [#4](https://github.com/FramY2/ctxwise/issues/4)**:
+  - Versioned YAML drift policy (`version: 1`, see [examples/ctxwise.drift.yaml](examples/ctxwise.drift.yaml) and [ADR 0001](docs/adr/0001-fail-closed-drift-policy.md)) with deterministic rule precedence (`deny` > `warn` > `allow` > `unmatched`), symmetric numeric bounds (`maxAdded`, `maxRemoved`, `maxChanged`, `maxBytesDelta`), and ReDoS-free segment-level glob matching (`matchDriftGlob`) rejecting traversal or backslash paths.
+  - Unmatched drift events fail closed in CI (`--fail-on-drift` exits with status `2`), while omitting `--policy` preserves full backward compatibility with v1.2.0 behavior.
+  - Added `drift-policy` input to [action.yml](action.yml) to wire fail-closed drift policies directly into GitHub Actions.
+- **Multi-Agent Lockfile Protection (`ctxwise lock --all-agents`)**:
+  - Opt-in `--all-agents` flag on `ctxwise lock` and `ctxwise drift` (persisted via `CapabilityLock.includeMultiAgent`) deterministically discovers and canonicalizes `.claude/settings.json`, `.claude/settings.local.json`, `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/**/*.md`, and `.cursorrules`.
+  - Secret-safe JSON canonicalization redacts `env` values, credential keys, and `Bearer`/`Basic` tokens before hashing while preserving `hooks`, `disableAllHooks`, `permissions`, and MCP server definitions so tampering is caught immediately without leaking secrets.
+- **MCP Diet Wrapper Snippet Generator (`generateMcpDietWrapperSnippet`)**:
+  - Exported `generateMcpDietWrapperSnippet(declarations, options?)` from `src/mcp-xray.ts` to emit ready-to-paste `.mcp.json` / `.vscode/mcp.json` entries routing stdio servers through `npx -y @framy2/mcp-diet@0.2.0 --max-desc <N> --max-result-kb <KB> --redact-secrets [--read-only] -- <cmd> <args...>`, skipping HTTP/SSE, unknown-transport, and already-wrapped `mcp-diet` servers while preserving `env` and `cwd`.
+- **Interactive Browser Shield & Auto-Fix Panel (`docs/index.html`)**:
+  - Browser Shield now flags unpinned `npx`/`bunx`/`pnpx`/`pnpm dlx`/`yarn dlx` runners (missing `@x.y.z` semver pin) and inline `Authorization`/`Bearer`/`x-api-key`/`api-key`/`x-auth-token` header secrets (ignoring `${VAR}` / `$VAR` env references).
+  - Added an interactive **Auto-Fix: `@framy2/mcp-diet` Wrapper & `agent-wire-tap` CI Command** panel below Browser Shield results with `--read-only` toggle and 1-click Copy buttons for wrapped `.mcp.json` / `.vscode/mcp.json` (`@framy2/mcp-diet@0.2.0`) and `npx @framy2/agent-wire-tap@0.3.0 --passthrough --assert-tools-sorted --assert-cache-breakpoint-covers-tools --assert-no-prefix-divergence -- claude -p "healthcheck"`.
+
+### Changed
+
+- Bumped `@framy2/ctxwise`, `ctxwise-vscode`, Claude Code / Codex plugin manifests, and web calculator version pills to `v1.3.0`; updated ecosystem links and defaults to [`@framy2/mcp-diet` v0.2.0](https://github.com/FramY2/mcp-diet) and [`@framy2/agent-wire-tap` v0.3.0](https://github.com/FramY2/agent-wire-tap).
+- Included `examples/ctxwise.drift.yaml` in the published npm package `files` list.
+
 ## [1.2.0] - 2026-11-11
 
 ### Added

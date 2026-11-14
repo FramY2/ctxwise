@@ -566,4 +566,228 @@ describe("CtxWise CLI", { timeout: 20_000 }, () => {
       ]),
     ).rejects.toMatchObject({ code: 2 });
   }, 20_000);
+
+  it("locks multi-agent configs with --all-agents and enforces fail-closed drift policies with --policy", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ctxwise-drift-policy-e2e-"));
+    created.push(root);
+    const codexHome = join(root, ".codex-home");
+    const projectRoot = join(root, "repo");
+    const lockPath = join(root, "out", "ctxwise.lock.json");
+    const policyPath = join(projectRoot, "ctxwise.drift.yaml");
+
+    await Promise.all([
+      mkdir(codexHome, { recursive: true }),
+      mkdir(join(projectRoot, ".git"), { recursive: true }),
+      mkdir(join(projectRoot, ".claude", "rules"), { recursive: true }),
+    ]);
+    await writeFile(join(projectRoot, "AGENTS.md"), "Use pnpm.\n");
+    await writeFile(join(projectRoot, "CLAUDE.md"), "Use pnpm.\n");
+    await writeFile(
+      join(projectRoot, ".claude", "settings.json"),
+      JSON.stringify({
+        disableAllHooks: false,
+        permissions: { deny: ["Edit(.claude/**)", "Write(.claude/**)"] },
+        env: { ANTHROPIC_API_KEY: "sk-ant-api03-e2e-secret-1234567890" },
+      }),
+    );
+    await writeFile(
+      join(projectRoot, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          remote: {
+            url: "https://mcp.example.com",
+            headers: { Authorization: "Bearer e2e-live-token-12345" },
+          },
+        },
+      }),
+    );
+
+    await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "lock",
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--all-agents",
+      "--out",
+      lockPath,
+    ]);
+
+    const lockText = await readFile(lockPath, "utf8");
+    const parsedLock = JSON.parse(lockText) as {
+      includeMultiAgent?: boolean;
+      entries: Array<{ path: string }>;
+    };
+    expect(parsedLock.includeMultiAgent).toBe(true);
+    expect(parsedLock.entries.map((e) => e.path)).toEqual([
+      ".claude/settings.json",
+      ".mcp.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+    expect(lockText).not.toContain("e2e-secret-1234567890");
+    expect(lockText).not.toContain("e2e-live-token-12345");
+
+    // Baseline vs live without --policy preserves backward-compatible JSON shape (no `policy` key)
+    const { stdout: cleanRaw } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "drift",
+      lockPath,
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--json",
+      "--fail-on-drift",
+    ]);
+    const cleanReport = JSON.parse(cleanRaw) as Record<string, unknown>;
+    expect(cleanReport.status).toBe("clean");
+    expect("policy" in cleanReport).toBe(false);
+
+    // Add a modular rule and edit CLAUDE.md
+    await writeFile(
+      join(projectRoot, ".claude", "rules", "style.md"),
+      "Prefer concise diffs.\n",
+    );
+    await writeFile(join(projectRoot, "CLAUDE.md"), "Use pnpm cleanly.\n");
+
+    await writeFile(
+      policyPath,
+      `version: 1
+maxAdded: 2
+maxChanged: 2
+maxBytesDelta: 2048
+rules:
+  - id: deny-settings
+    action: deny
+    scope: project
+    paths: [".claude/settings.json"]
+    reason: "Settings are locked."
+  - id: warn-claude
+    action: warn
+    scope: project
+    paths: ["CLAUDE.md"]
+    changes: ["changed"]
+    reason: "Warn on CLAUDE.md edits."
+  - id: allow-rules
+    action: allow
+    scope: project
+    paths: [".claude/rules/**/*.md"]
+    changes: ["added", "changed"]
+    reason: "Allow modular rules."
+`,
+    );
+
+    // Allowed + warned changes within thresholds pass even with --fail-on-drift!
+    const { stdout: warnPolicyRaw } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "drift",
+      lockPath,
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--policy",
+      policyPath,
+      "--json",
+      "--fail-on-drift",
+    ]);
+    expect(JSON.parse(warnPolicyRaw)).toMatchObject({
+      status: "drifted",
+      policy: {
+        path: "ctxwise.drift.yaml",
+        status: "warn",
+        blocking: false,
+        summary: { allowed: 1, warned: 1, denied: 0, unmatched: 0 },
+      },
+    });
+
+    // Human-readable output
+    const { stdout: warnText } = await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "drift",
+      lockPath,
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--policy",
+      policyPath,
+    ]);
+    expect(warnText).toContain("policy: warn");
+    expect(warnText).toContain("[ALLOW]");
+    expect(warnText).toContain("[WARN]");
+
+    // Now tamper with .claude/settings.json (auto-discovered via lock.includeMultiAgent=true without --all-agents!)
+    await writeFile(
+      join(projectRoot, ".claude", "settings.json"),
+      JSON.stringify({ disableAllHooks: true }),
+    );
+    await expect(
+      execFileAsync(process.execPath, [
+        tsx,
+        cli,
+        "drift",
+        lockPath,
+        "--codex-home",
+        codexHome,
+        "--project",
+        projectRoot,
+        "--policy",
+        policyPath,
+        "--fail-on-drift",
+      ]),
+    ).rejects.toMatchObject({ code: 2 });
+
+    // Also test --all-agents on a Codex-only baseline detects new multi-agent files
+    const codexOnlyLockPath = join(root, "codex-only.lock.json");
+    await execFileAsync(process.execPath, [
+      tsx,
+      cli,
+      "lock",
+      "--codex-home",
+      codexHome,
+      "--project",
+      projectRoot,
+      "--out",
+      codexOnlyLockPath,
+    ]);
+    await expect(
+      execFileAsync(process.execPath, [
+        tsx,
+        cli,
+        "drift",
+        codexOnlyLockPath,
+        "--codex-home",
+        codexHome,
+        "--project",
+        projectRoot,
+        "--all-agents",
+        "--fail-on-drift",
+      ]),
+    ).rejects.toMatchObject({ code: 2 });
+
+    // Malformed policy YAML exits with code 1
+    const badPolicyPath = join(root, "bad-policy.yaml");
+    await writeFile(badPolicyPath, "version: 1\nunknownKey: true\nrules: []\n");
+    await expect(
+      execFileAsync(process.execPath, [
+        tsx,
+        cli,
+        "drift",
+        lockPath,
+        "--codex-home",
+        codexHome,
+        "--project",
+        projectRoot,
+        "--policy",
+        badPolicyPath,
+      ]),
+    ).rejects.toMatchObject({ code: 1 });
+  }, 30_000);
 });

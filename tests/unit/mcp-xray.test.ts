@@ -8,10 +8,12 @@ import {
   analyzeMcpToolsPayload,
   buildMcpXrayReport,
   discoverMcpDeclarations,
+  generateMcpDietWrapperSnippet,
   probeStdioMcpServer,
   pruneMcpServers,
   renderMcpPruneReport,
   renderMcpXrayReport,
+  type McpServerDeclaration,
 } from "../../src/mcp-xray.js";
 import { withTempDir } from "../support/temp.js";
 
@@ -391,5 +393,266 @@ describe("MCP Schema X-Ray and Tree-Shaker", () => {
       });
       expect(remaining).toEqual([]);
     });
+  });
+});
+
+describe("generateMcpDietWrapperSnippet", () => {
+  it("wraps stdio servers with default @framy2/mcp-diet@0.2.0 flags and skips HTTP/already-wrapped servers", () => {
+    const declarations: McpServerDeclaration[] = [
+      {
+        name: "github",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-github@2025.4.8"],
+        env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" },
+        cwd: "/repo/tools",
+      },
+      {
+        name: "postgres",
+        source: "codex-project",
+        transport: "stdio",
+        command: "uvx",
+        args: ["mcp-server-postgres"],
+      },
+      {
+        name: "remote_sse",
+        source: "project-mcp-json",
+        transport: "http",
+        url: "https://mcp.example.com/sse",
+      },
+      {
+        name: "already_npx_diet",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "npx",
+        args: [
+          "-y",
+          "@framy2/mcp-diet@0.2.0",
+          "--max-desc",
+          "120",
+          "--",
+          "node",
+          "srv.js",
+        ],
+      },
+      {
+        name: "already_bin_diet",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "C:\\tools\\mcp-diet.cmd",
+        args: ["--read-only", "--", "python", "srv.py"],
+      },
+      {
+        name: "already_node_diet",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "node",
+        args: ["/opt/node_modules/@framy2/mcp-diet/dist/cli.js", "--", "cat"],
+      },
+    ];
+
+    const snippet = generateMcpDietWrapperSnippet(declarations);
+    expect(snippet.containerKey).toBe("mcpServers");
+    expect(snippet.wrappedServers).toEqual(["github", "postgres"]);
+    expect(snippet.skippedServers).toEqual([
+      { name: "remote_sse", reason: "http" },
+      { name: "already_npx_diet", reason: "already-wrapped" },
+      { name: "already_bin_diet", reason: "already-wrapped" },
+      { name: "already_node_diet", reason: "already-wrapped" },
+    ]);
+
+    expect(snippet.mcpServers.github).toEqual({
+      command: "npx",
+      args: [
+        "-y",
+        "@framy2/mcp-diet@0.2.0",
+        "--max-desc",
+        "160",
+        "--max-result-kb",
+        "512",
+        "--redact-secrets",
+        "--",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github@2025.4.8",
+      ],
+      env: { GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}" },
+      cwd: "/repo/tools",
+    });
+
+    expect(snippet.mcpServers.postgres).toEqual({
+      command: "npx",
+      args: [
+        "-y",
+        "@framy2/mcp-diet@0.2.0",
+        "--max-desc",
+        "160",
+        "--max-result-kb",
+        "512",
+        "--redact-secrets",
+        "--",
+        "uvx",
+        "mcp-server-postgres",
+      ],
+    });
+
+    const parsedJson = JSON.parse(snippet.json) as {
+      mcpServers: Record<string, unknown>;
+    };
+    expect(Object.keys(parsedJson.mcpServers)).toEqual(["github", "postgres"]);
+  });
+
+  it("supports --read-only, custom thresholds, redactSecrets=false, VS Code servers container, and serverNames filtering", () => {
+    const declarations: McpServerDeclaration[] = [
+      {
+        name: "docs",
+        source: "vscode-mcp-json",
+        transport: "stdio",
+        command: "python",
+        args: ["-m", "docs_mcp"],
+      },
+      {
+        name: "docs",
+        source: "codex-home",
+        transport: "stdio",
+        command: "python",
+        args: ["-m", "docs_mcp_dup"],
+      },
+      {
+        name: "other",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "node",
+        args: ["other.js"],
+      },
+      {
+        name: "broken_unknown",
+        source: "project-mcp-json",
+        transport: "unknown",
+      },
+      {
+        name: "broken_missing_cmd",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "   ",
+      },
+      {
+        name: "unrelated_flag",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "my-custom-server",
+        args: ["--label", "mcp-diet"],
+      },
+    ];
+
+    const snippet = generateMcpDietWrapperSnippet(declarations, {
+      maxDescChars: 90,
+      maxResultKb: 256,
+      redactSecrets: false,
+      readOnly: true,
+      mcpDietPackage: "@framy2/mcp-diet@0.2.0",
+      containerKey: "servers",
+      serverNames: [
+        "docs",
+        "broken_unknown",
+        "broken_missing_cmd",
+        "unrelated_flag",
+      ],
+    });
+
+    expect(snippet.containerKey).toBe("servers");
+    expect(snippet.wrappedServers).toEqual(["docs", "unrelated_flag"]);
+    expect(snippet.skippedServers).toEqual([
+      { name: "docs", reason: "duplicate" },
+      { name: "other", reason: "excluded" },
+      { name: "broken_unknown", reason: "unknown-transport" },
+      { name: "broken_missing_cmd", reason: "missing-command" },
+    ]);
+
+    expect(snippet.mcpServers.docs).toEqual({
+      type: "stdio",
+      command: "npx",
+      args: [
+        "-y",
+        "@framy2/mcp-diet@0.2.0",
+        "--max-desc",
+        "90",
+        "--max-result-kb",
+        "256",
+        "--read-only",
+        "--",
+        "python",
+        "-m",
+        "docs_mcp",
+      ],
+    });
+
+    expect(snippet.mcpServers.unrelated_flag?.args).toEqual([
+      "-y",
+      "@framy2/mcp-diet@0.2.0",
+      "--max-desc",
+      "90",
+      "--max-result-kb",
+      "256",
+      "--read-only",
+      "--",
+      "my-custom-server",
+      "--label",
+      "mcp-diet",
+    ]);
+
+    const parsed = JSON.parse(snippet.json) as {
+      servers: Record<string, unknown>;
+    };
+    expect(Object.keys(parsed)).toEqual(["servers"]);
+    expect(Object.keys(parsed.servers)).toEqual(["docs", "unrelated_flag"]);
+  });
+
+  it("handles servers whose inner args contain mcp-diet after -- and validates options", () => {
+    const wrapped = generateMcpDietWrapperSnippet([
+      {
+        name: "echo_args",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "npx",
+        args: ["-y", "echo-mcp@1.0.0", "--", "mcp-diet"],
+      },
+      {
+        name: "quoted_diet",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: '"mcp-diet"',
+        args: ["--", "node", "x.js"],
+      },
+      {
+        name: "bare_no_args",
+        source: "project-mcp-json",
+        transport: "stdio",
+        command: "docker",
+      },
+    ]);
+
+    expect(wrapped.wrappedServers).toEqual(["echo_args", "bare_no_args"]);
+    expect(wrapped.skippedServers).toEqual([
+      { name: "quoted_diet", reason: "already-wrapped" },
+    ]);
+    expect(wrapped.mcpServers.bare_no_args?.args.slice(-2)).toEqual([
+      "--",
+      "docker",
+    ]);
+
+    expect(() =>
+      generateMcpDietWrapperSnippet([], { maxDescChars: 0 }),
+    ).toThrow(/maxDescChars/);
+    expect(() =>
+      generateMcpDietWrapperSnippet([], { maxDescChars: 12.5 }),
+    ).toThrow(/maxDescChars/);
+    expect(() =>
+      generateMcpDietWrapperSnippet([], { maxResultKb: -1 }),
+    ).toThrow(/maxResultKb/);
+    expect(() =>
+      generateMcpDietWrapperSnippet([], { mcpDietPackage: "   " }),
+    ).toThrow(/mcpDietPackage/);
   });
 });

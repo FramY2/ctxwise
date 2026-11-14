@@ -9,6 +9,7 @@ export * from "./codex-command.js";
 export * from "./codex-doctor.js";
 export * from "./context-map.js";
 export * from "./drift.js";
+export * from "./drift-policy.js";
 export * from "./events.js";
 export * from "./lockfile.js";
 export * from "./mcp-xray.js";

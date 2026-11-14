@@ -1074,3 +1074,201 @@ export function renderMcpPruneReport(report: McpPruneReport): string {
 
   return `${lines.join("\n")}\n`;
 }
+
+export interface McpDietWrapperOptions {
+  /** Maximum characters for tool and property descriptions (`--max-desc`, default `160`). */
+  maxDescChars?: number;
+  /** Maximum tool result size in KiB before spilling (`--max-result-kb`, default `512`). */
+  maxResultKb?: number;
+  /** Redact leaked credentials in tool call outputs (`--redact-secrets`, default `true`). */
+  redactSecrets?: boolean;
+  /** Restrict wrapped servers to read-only tools (`--read-only`, default `false`). */
+  readOnly?: boolean;
+  /** Package specifier passed to `npx -y` (default `"@framy2/mcp-diet@0.2.0"`). */
+  mcpDietPackage?: string;
+  /** Top-level JSON key (`"mcpServers"` for `.mcp.json`/Cursor, `"servers"` for VS Code). */
+  containerKey?: "mcpServers" | "servers";
+  /** Optional allowlist of server names to include in the generated snippet. */
+  serverNames?: readonly string[];
+}
+
+export interface McpDietWrappedServerConfig {
+  type?: "stdio";
+  command: "npx";
+  args: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
+export type McpDietSkipReason =
+  | "http"
+  | "unknown-transport"
+  | "already-wrapped"
+  | "missing-command"
+  | "excluded"
+  | "duplicate";
+
+export interface McpDietSkippedServer {
+  name: string;
+  reason: McpDietSkipReason;
+}
+
+export interface McpDietWrapperSnippet {
+  containerKey: "mcpServers" | "servers";
+  mcpServers: Record<string, McpDietWrappedServerConfig>;
+  wrappedServers: string[];
+  skippedServers: McpDietSkippedServer[];
+  json: string;
+}
+
+const MCP_DIET_RUNNERS = new Set([
+  "npx",
+  "npm",
+  "bunx",
+  "bun",
+  "pnpx",
+  "pnpm",
+  "yarn",
+  "node",
+  "cmd",
+]);
+
+function normalizeCommandBasename(command: string): string {
+  const trimmed = command.trim().replace(/^["']|["']$/g, "");
+  const base = trimmed.replaceAll("\\", "/").split("/").pop() ?? "";
+  return base.toLowerCase().replace(/\.(?:cmd|exe|bat|ps1|com)$/, "");
+}
+
+function isMcpDietSpecifier(token: string): boolean {
+  const trimmed = token.trim().replace(/^["']|["']$/g, "");
+  if (!trimmed) return false;
+  const normalized = trimmed.replaceAll("\\", "/").toLowerCase();
+  const stripped = normalized.replace(/\.(?:cmd|exe|bat|ps1|com)$/, "");
+  const base = stripped.split("/").pop() ?? "";
+  if (base === "mcp-diet") return true;
+  if (/^(?:@framy2\/)?mcp-diet(?:@[^\s/]+)?$/.test(stripped)) return true;
+  return /(?:^|\/)(?:@framy2\/)?mcp-diet\/(?:dist|bin|src)\/[^/]+\.(?:js|cjs|mjs|ts)$/.test(
+    stripped,
+  );
+}
+
+function isAlreadyWrappedWithMcpDiet(decl: McpServerDeclaration): boolean {
+  if (decl.command && isMcpDietSpecifier(decl.command)) {
+    return true;
+  }
+  const base = decl.command ? normalizeCommandBasename(decl.command) : "";
+  if (!MCP_DIET_RUNNERS.has(base)) {
+    return false;
+  }
+  for (const arg of decl.args ?? []) {
+    if (arg === "--") break;
+    if (isMcpDietSpecifier(arg)) return true;
+  }
+  return false;
+}
+
+/**
+ * Generate ready-to-paste `.mcp.json` (or `.vscode/mcp.json`) wrapper entries
+ * routing stdio MCP servers through `@framy2/mcp-diet@0.2.0`, skipping HTTP/SSE
+ * servers and servers already wrapped with `mcp-diet`.
+ */
+export function generateMcpDietWrapperSnippet(
+  declarations: readonly McpServerDeclaration[],
+  options: McpDietWrapperOptions = {},
+): McpDietWrapperSnippet {
+  const maxDescChars = options.maxDescChars ?? 160;
+  if (!Number.isInteger(maxDescChars) || maxDescChars <= 0) {
+    throw new Error("maxDescChars must be a positive integer.");
+  }
+  const maxResultKb = options.maxResultKb ?? 512;
+  if (!Number.isFinite(maxResultKb) || maxResultKb <= 0) {
+    throw new Error("maxResultKb must be a positive number.");
+  }
+  const redactSecrets = options.redactSecrets ?? true;
+  const readOnly = options.readOnly ?? false;
+  const mcpDietPackage = (
+    options.mcpDietPackage ?? "@framy2/mcp-diet@0.2.0"
+  ).trim();
+  if (!mcpDietPackage) {
+    throw new Error("mcpDietPackage must be a non-empty string.");
+  }
+  const containerKey = options.containerKey ?? "mcpServers";
+  const allowedNames = options.serverNames
+    ? new Set(options.serverNames)
+    : null;
+
+  const wrappedEntries = new Map<string, McpDietWrappedServerConfig>();
+  const wrappedServers: string[] = [];
+  const skippedServers: McpDietSkippedServer[] = [];
+  const seenNames = new Set<string>();
+
+  for (const decl of declarations) {
+    if (allowedNames && !allowedNames.has(decl.name)) {
+      skippedServers.push({ name: decl.name, reason: "excluded" });
+      continue;
+    }
+    if (seenNames.has(decl.name)) {
+      skippedServers.push({ name: decl.name, reason: "duplicate" });
+      continue;
+    }
+    seenNames.add(decl.name);
+
+    if (decl.transport === "http") {
+      skippedServers.push({ name: decl.name, reason: "http" });
+      continue;
+    }
+    if (decl.transport !== "stdio") {
+      skippedServers.push({ name: decl.name, reason: "unknown-transport" });
+      continue;
+    }
+    const command = decl.command?.trim();
+    if (!command) {
+      skippedServers.push({ name: decl.name, reason: "missing-command" });
+      continue;
+    }
+    if (isAlreadyWrappedWithMcpDiet(decl)) {
+      skippedServers.push({ name: decl.name, reason: "already-wrapped" });
+      continue;
+    }
+
+    const args: string[] = [
+      "-y",
+      mcpDietPackage,
+      "--max-desc",
+      String(maxDescChars),
+      "--max-result-kb",
+      String(maxResultKb),
+    ];
+    if (redactSecrets) {
+      args.push("--redact-secrets");
+    }
+    if (readOnly) {
+      args.push("--read-only");
+    }
+    args.push("--", command, ...(decl.args ?? []));
+
+    const entry: McpDietWrappedServerConfig = {
+      ...(containerKey === "servers" ? { type: "stdio" as const } : {}),
+      command: "npx",
+      args,
+      ...(decl.env && Object.keys(decl.env).length > 0
+        ? { env: { ...decl.env } }
+        : {}),
+      ...(decl.cwd ? { cwd: decl.cwd } : {}),
+    };
+
+    wrappedEntries.set(decl.name, entry);
+    wrappedServers.push(decl.name);
+  }
+
+  const mcpServers = Object.fromEntries(wrappedEntries);
+  const json = `${JSON.stringify({ [containerKey]: mcpServers }, null, 2)}\n`;
+
+  return {
+    containerKey,
+    mcpServers,
+    wrappedServers,
+    skippedServers,
+    json,
+  };
+}

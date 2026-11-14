@@ -1,0 +1,56 @@
+# CtxWise fail-closed drift policy (version 1).
+# Any context or capability change not matched by a rule defaults to
+# "unmatched" and blocks CI (fail-closed).
+# Precedence per change: deny > warn > allow > unmatched (blocking).
+version: 1
+maxAdded: 3
+maxRemoved: 1
+maxChanged: 5
+maxBytesDelta: 8192
+
+rules:
+  - id: deny-claude-settings-tampering
+    action: deny
+    scope: project
+    paths:
+      - .claude/settings.json
+      - .claude/settings.local.json
+    reason: "Claude settings govern hooks and permissions.deny; mutations require an explicit reviewed lockfile update."
+
+  - id: deny-mcp-server-mutations
+    action: deny
+    scope: project
+    paths:
+      - .mcp.json
+      - .cursor/mcp.json
+      - .vscode/mcp.json
+    reason: "MCP server declarations add external tool surfaces and credentials; require explicit lockfile review."
+
+  - id: deny-codex-home-changes
+    action: deny
+    scope: codex-home
+    paths:
+      - "**"
+    reason: "User-level Codex home configuration must remain stable during automated CI checks."
+
+  - id: warn-project-guidance-edits
+    action: warn
+    scope: project
+    paths:
+      - AGENTS.md
+      - CLAUDE.md
+      - .claude/CLAUDE.md
+      - .cursorrules
+    changes:
+      - changed
+    reason: "Guidance edits are non-blocking warnings within byte thresholds; review instruction and token impact."
+
+  - id: allow-modular-claude-rules
+    action: allow
+    scope: project
+    paths:
+      - .claude/rules/**/*.md
+    changes:
+      - added
+      - changed
+    reason: "Modular rule additions and edits under .claude/rules/ are permitted up to numeric limits."

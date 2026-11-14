@@ -22,6 +22,14 @@ inputs:
     description: "Report the multi-agent context surface across Claude Code, OpenAI Codex, and Cursor, and fail when CLAUDE.md and AGENTS.md have diverged (`ctxwise agents --fail-on-divergence`)"
     required: false
     default: "true"
+  drift-lockfile:
+    description: "Optional path to a baseline capability lockfile (e.g. examples/ci-baseline.lock.json or ctxwise.lock.json) to check for context drift in CI (`ctxwise drift`)."
+    required: false
+    default: ""
+  drift-policy:
+    description: "Optional path to a versioned YAML fail-closed drift policy (`ctxwise drift --policy`). Used with drift-lockfile."
+    required: false
+    default: ""
   node-version:
     description: "Node.js version to run CtxWise"
     required: false
@@ -77,12 +85,31 @@ runs:
           echo "Budget check skipped (max-known-tokens is 0 and no budget policy was found)."
         fi
 
+    - name: Check Capability Drift
+      if: ${{ inputs.drift-lockfile != '' || inputs.drift-policy != '' }}
+      shell: bash
+      env:
+        CTXWISE_DRIFT_LOCKFILE: ${{ inputs.drift-lockfile }}
+        CTXWISE_DRIFT_POLICY: ${{ inputs.drift-policy }}
+      run: |
+        if [ -z "$CTXWISE_DRIFT_LOCKFILE" ]; then
+          echo "Error: drift-policy requires drift-lockfile to be set." >&2
+          exit 1
+        fi
+        DRIFT_ARGS=("$CTXWISE_DRIFT_LOCKFILE" --fail-on-drift)
+        if [ -n "$CTXWISE_DRIFT_POLICY" ]; then
+          DRIFT_ARGS+=(--policy "$CTXWISE_DRIFT_POLICY")
+        fi
+        npx --yes @framy2/ctxwise drift "${DRIFT_ARGS[@]}"
+
     - name: Write CtxWise job summary
       if: ${{ always() }}
       shell: bash
       env:
         CTXWISE_BUDGET_POLICY: ${{ inputs.budget-policy }}
         CTXWISE_MAX_KNOWN_TOKENS: ${{ inputs.max-known-tokens }}
+        CTXWISE_DRIFT_LOCKFILE: ${{ inputs.drift-lockfile }}
+        CTXWISE_DRIFT_POLICY: ${{ inputs.drift-policy }}
       run: |
         if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then
           echo "GITHUB_STEP_SUMMARY is not set; skipping the job summary."
@@ -103,6 +130,13 @@ runs:
         if [ ${#BUDGET_ARGS[@]} -gt 0 ]; then
           npx --yes @framy2/ctxwise budget "${BUDGET_ARGS[@]}" --json > "$TMP_DIR/budget.json" 2>/dev/null || true
         fi
+        if [ -n "${CTXWISE_DRIFT_LOCKFILE:-}" ]; then
+          DRIFT_ARGS=("$CTXWISE_DRIFT_LOCKFILE" --json)
+          if [ -n "${CTXWISE_DRIFT_POLICY:-}" ]; then
+            DRIFT_ARGS+=(--policy "$CTXWISE_DRIFT_POLICY")
+          fi
+          npx --yes @framy2/ctxwise drift "${DRIFT_ARGS[@]}" > "$TMP_DIR/drift.json" 2>/dev/null || true
+        fi
         CTXWISE_SUMMARY_DIR="$TMP_DIR" node --input-type=module - >> "$GITHUB_STEP_SUMMARY" <<'NODE'
         import { readFileSync } from "node:fs";
         import { join } from "node:path";
@@ -118,6 +152,7 @@ runs:
         const shield = read("shield.json");
         const agents = read("agents.json");
         const budget = read("budget.json");
+        const drift = read("drift.json");
         const lines = ["## 🛡️ CtxWise context report", ""];
         if (shield?.summary) {
           const s = shield.summary;
@@ -151,6 +186,26 @@ runs:
           );
         } else {
           lines.push("**Budget:** skipped");
+        }
+        if (drift?.summary) {
+          const d = drift.summary;
+          const policyStatus = drift.policy?.status;
+          const driftIcon = drift.policy
+            ? drift.policy.blocking
+              ? "❌"
+              : policyStatus === "warn"
+                ? "⚠️"
+                : "✅"
+            : drift.status === "clean"
+              ? "✅"
+              : "❌";
+          const driftLabel = drift.policy
+            ? `${drift.status} (policy: ${policyStatus})`
+            : drift.status;
+          lines.push(
+            "",
+            `**Drift:** ${driftIcon} ${driftLabel} · ${fmt(d.total)} changes (+${fmt(d.added)} -${fmt(d.removed)} ~${fmt(d.changed)})`,
+          );
         }
         lines.push(
           "",

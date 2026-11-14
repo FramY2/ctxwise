@@ -141,4 +141,24 @@ describe("parseCapabilityLock", () => {
       ),
     ).toThrow(/duplicate entry/i);
   });
+
+  it("accepts and preserves includeMultiAgent metadata when present", () => {
+    const multiAgentLock = {
+      ...lock("2026-11-14T10:00:00.000Z", [
+        {
+          scope: "project" as const,
+          path: ".claude/settings.json",
+          sha256: "e".repeat(64),
+          bytes: 200,
+          redacted: false,
+        },
+      ]),
+      includeMultiAgent: true,
+    };
+    const parsed = parseCapabilityLock(multiAgentLock);
+    expect(parsed.includeMultiAgent).toBe(true);
+
+    const legacy = lock("2026-11-14T10:00:00.000Z", []);
+    expect("includeMultiAgent" in parseCapabilityLock(legacy)).toBe(false);
+  });
 });

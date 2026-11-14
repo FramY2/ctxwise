@@ -270,6 +270,63 @@
         border-color: rgba(239, 68, 68, 0.6);
         color: #fecaca;
       }
+      .alert-box.caution {
+        border-color: rgba(245, 158, 11, 0.6);
+        color: #fde68a;
+      }
+      .autofix-panel {
+        margin-top: 0.95rem;
+        padding: 0.95rem 1rem;
+        border-radius: 0.65rem;
+        border: 1px solid rgba(45, 226, 230, 0.35);
+        background: #0b101b;
+      }
+      .autofix-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.7rem;
+      }
+      .autofix-summary {
+        font-size: 0.78rem;
+        color: var(--cyan);
+        margin-top: 0.15rem;
+      }
+      .autofix-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.78rem;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .autofix-block {
+        margin-top: 0.7rem;
+      }
+      .autofix-block-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+      }
+      .autofix-code {
+        margin: 0;
+        padding: 0.65rem 0.75rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border);
+        background: #060911;
+        color: #e5e7eb;
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        max-height: 220px;
+        overflow: auto;
+        white-space: pre;
+      }
       .eco-section {
         margin-top: 2.5rem;
       }
@@ -322,9 +379,9 @@
     <div class="container">
       <header>
         <div class="badge-row">
-          <span class="pill">🛡️ @framy2/ctxwise v1.2.0</span>
-          <span class="pill cyan">⚡ @framy2/mcp-diet v0.1.0</span>
-          <span class="pill">🔌 @framy2/agent-wire-tap v0.1.0</span>
+          <span class="pill">🛡️ @framy2/ctxwise v1.3.0</span>
+          <span class="pill cyan">⚡ @framy2/mcp-diet v0.2.0</span>
+          <span class="pill">🔌 @framy2/agent-wire-tap v0.3.0</span>
           <span class="pill cyan">100% Client-Side · Zero Telemetry</span>
         </div>
         <h1>AI Context Firewall &amp; MCP Token Tax Calculator</h1>
@@ -456,6 +513,65 @@
           </table>
 
           <div id="shieldAlert" class="alert-box ok"></div>
+
+          <div id="autoFixPanel" class="autofix-panel" style="display: none">
+            <div class="autofix-header">
+              <div>
+                <strong
+                  >Auto-Fix: @framy2/mcp-diet Wrapper &amp; agent-wire-tap CI
+                  Command</strong
+                >
+                <div id="autoFixSummary" class="autofix-summary"></div>
+              </div>
+              <label class="autofix-toggle">
+                <input
+                  type="checkbox"
+                  id="autoFixReadOnly"
+                  onchange="recalculate()"
+                />
+                <code>--read-only</code>
+              </label>
+            </div>
+
+            <div class="autofix-block">
+              <div class="autofix-block-head">
+                <span
+                  >(a) Wrapped
+                  <code>.mcp.json</code>
+                  (<code>@framy2/mcp-diet@0.2.0</code>)</span
+                >
+                <button
+                  id="copyAutoFixMcpBtn"
+                  class="copy-btn"
+                  type="button"
+                  onclick="copyAutoFix('mcp', this)"
+                >
+                  Copy .mcp.json
+                </button>
+              </div>
+              <pre class="autofix-code"><code id="autoFixMcpCode"></code></pre>
+            </div>
+
+            <div class="autofix-block">
+              <div class="autofix-block-head">
+                <span
+                  >(b) <code>agent-wire-tap</code> CI Prefix &amp; Cache
+                  Contract Command</span
+                >
+                <button
+                  id="copyAutoFixTapBtn"
+                  class="copy-btn"
+                  type="button"
+                  onclick="copyAutoFix('tap', this)"
+                >
+                  Copy CI Command
+                </button>
+              </div>
+              <pre
+                class="autofix-code"
+              ><code id="autoFixWireTapCode"></code></pre>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -474,12 +590,13 @@
           <div class="card">
             <h2>
               <a href="https://github.com/FramY2/ctxwise">@framy2/ctxwise</a>
-              <span class="pill">v1.2.0</span>
+              <span class="pill">v1.3.0</span>
             </h2>
             <p style="color: var(--muted); font-size: 0.9rem">
               Static AI Context Firewall, MCP Schema Tree-Shaker
-              (<code>mcp-xray</code>), cross-agent sync (<code>CLAUDE.md</code>
-              ↔ <code>AGENTS.md</code> ↔ Cursor), and SARIF 2.1.0 Secret Shield.
+              (<code>mcp-xray</code>), fail-closed
+              <code>drift --policy</code> &amp; <code>lock --all-agents</code>,
+              cross-agent sync, and SARIF 2.1.0 Secret Shield.
             </p>
             <div class="cmd-snippet">
               <code>npx @framy2/ctxwise shield --fail-on-risk</code>
@@ -494,11 +611,11 @@
               </button>
             </div>
             <div class="cmd-snippet">
-              <code>npx @framy2/ctxwise agents</code>
+              <code>npx @framy2/ctxwise lock --all-agents</code>
               <button
                 class="copy-btn"
                 type="button"
-                onclick="copyCmd('npx @framy2/ctxwise agents', this)"
+                onclick="copyCmd('npx @framy2/ctxwise lock --all-agents', this)"
               >
                 Copy
               </button>
@@ -508,25 +625,27 @@
           <div class="card">
             <h2>
               <a href="https://github.com/FramY2/mcp-diet">@framy2/mcp-diet</a>
-              <span class="pill cyan">v0.1.0</span>
+              <span class="pill cyan">v0.2.0</span>
             </h2>
             <p style="color: var(--muted); font-size: 0.9rem">
               Zero-dependency stdio MCP proxy: deterministic
               <code>tools/list</code> tree-shaking (<code>--read-only</code>,
-              <code>--max-desc</code>), <code>&gt;= 8 MiB</code> crash guard
-              (<code>--max-result-kb 512</code>), and live secret redaction.
+              <code>--max-desc</code>), structured spill offset maps + sandboxed
+              <code>mcp_diet_read_spill</code> paging (<code
+                >--max-result-kb 512</code
+              >), and live secret redaction.
             </p>
             <div class="cmd-snippet">
               <code
-                >npx @framy2/mcp-diet --read-only --max-result-kb 512 --
-                ...</code
+                >npx -y @framy2/mcp-diet@0.2.0 --max-desc 160 --max-result-kb
+                512 --redact-secrets -- ...</code
               >
               <button
                 class="copy-btn"
                 type="button"
                 onclick="
                   copyCmd(
-                    'npx @framy2/mcp-diet --read-only --max-result-kb 512 --redact-secrets -- npx -y @modelcontextprotocol/server-github',
+                    'npx -y @framy2/mcp-diet@0.2.0 --max-desc 160 --max-result-kb 512 --redact-secrets -- npx -y @modelcontextprotocol/server-github@2025.4.8',
                     this,
                   )
                 "
@@ -541,25 +660,26 @@
               <a href="https://github.com/FramY2/agent-wire-tap"
                 >@framy2/agent-wire-tap</a
               >
-              <span class="pill">v0.1.0</span>
+              <span class="pill">v0.3.0</span>
             </h2>
             <p style="color: var(--muted); font-size: 0.9rem">
-              Zero-cost local loopback HTTP interceptor &amp; CI contract
-              tester. Captures exact outbound wire payloads from
-              <code>codex</code> or <code>claude</code> with
-              <strong>$0.00 API cost</strong>.
+              Zero-cost local loopback HTTP interceptor,
+              <code>--passthrough</code> proxy &amp; offline
+              <code>--replay</code> CI contract verifier. Checks sorted tools,
+              <code>cache_control</code> breakpoint coverage, and prefix drift
+              with <strong>$0.00 mock mode</strong>.
             </p>
             <div class="cmd-snippet">
               <code
-                >npx @framy2/agent-wire-tap --assert-max-tools 12 -- codex exec
-                "ping"</code
+                >npx @framy2/agent-wire-tap@0.3.0 --passthrough
+                --assert-tools-sorted -- ...</code
               >
               <button
                 class="copy-btn"
                 type="button"
                 onclick="
                   copyCmd(
-                    'npx @framy2/agent-wire-tap --assert-contains AGENTS.md --assert-max-tools 12 -- codex exec ping',
+                    'npx @framy2/agent-wire-tap@0.3.0 --passthrough --assert-tools-sorted --assert-cache-breakpoint-covers-tools --assert-no-prefix-divergence -- claude -p &quot;healthcheck&quot;',
                     this,
                   )
                 "
@@ -658,7 +778,7 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
                   command: "npx",
                   args: [
                     "-y",
-                    "@framy2/mcp-diet",
+                    "@framy2/mcp-diet@0.2.0",
                     "--read-only",
                     "--max-desc",
                     "160",
@@ -668,7 +788,7 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
                     "--",
                     "npx",
                     "-y",
-                    "@modelcontextprotocol/server-github",
+                    "@modelcontextprotocol/server-github@2025.4.8",
                   ],
                   estimatedTools: 6,
                   estimatedSchemaTokens: 920,
@@ -680,6 +800,68 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           ),
         },
       };
+
+      const WIRE_TAP_CI_CMD =
+        'npx @framy2/agent-wire-tap@0.3.0 --passthrough --assert-tools-sorted --assert-cache-breakpoint-covers-tools --assert-no-prefix-divergence -- claude -p "healthcheck"';
+      let latestWrappedMcpJson = "";
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function stripJsonComments(input) {
+        let out = "";
+        let inString = false;
+        let i = 0;
+        while (i < input.length) {
+          const ch = input[i];
+          const next = input[i + 1];
+          if (inString) {
+            out += ch;
+            if (ch === "\\") {
+              out += next ?? "";
+              i += 2;
+              continue;
+            }
+            if (ch === '"') inString = false;
+            i += 1;
+            continue;
+          }
+          if (ch === '"') {
+            inString = true;
+            out += ch;
+            i += 1;
+            continue;
+          }
+          if (ch === "/" && next === "/") {
+            while (i < input.length && input[i] !== "\n") i += 1;
+            continue;
+          }
+          if (ch === "/" && next === "*") {
+            const end = input.indexOf("*/", i + 2);
+            const block = end === -1 ? input.slice(i) : input.slice(i, end + 2);
+            out += block.replace(/[^\n]/g, " ");
+            i = end === -1 ? input.length : end + 2;
+            continue;
+          }
+          out += ch;
+          i += 1;
+        }
+        return out.replace(/,(\s*[}\]])/g, "$1");
+      }
+
+      function parseJsoncSafe(text) {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return JSON.parse(stripJsonComments(text));
+        }
+      }
 
       // Verified list prices (USD per 1M input tokens), CtxWise catalog 2026-11-11.
       const MODELS = [
@@ -693,16 +875,23 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
       ];
 
       function isPlaceholderMatch(matchText, lineText) {
-        const lowerMatch = matchText.toLowerCase();
-        const lowerLine = lineText.toLowerCase();
+        const trimmed = String(matchText || "").trim();
+        const lowerMatch = trimmed.toLowerCase();
+        const lowerLine = String(lineText || "").toLowerCase();
         if (
+          !trimmed ||
           lowerMatch.includes("example") ||
           lowerMatch.includes("placeholder") ||
           lowerMatch.includes("redacted") ||
           lowerMatch.includes("your_") ||
+          lowerMatch.includes("your-") ||
           lowerMatch.includes("xxxx") ||
           lowerMatch.includes("000000") ||
-          /^\$\{[a-z0-9_]+\}$/i.test(matchText)
+          lowerMatch.includes("changeme") ||
+          lowerMatch.includes("dummy") ||
+          /\$\{[^}]+\}/.test(trimmed) ||
+          /^\$[A-Z_][A-Z0-9_]*$/.test(trimmed) ||
+          /^<[^>]+>$/.test(trimmed)
         ) {
           return true;
         }
@@ -715,8 +904,8 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         ) {
           return true;
         }
-        if (matchText.includes("://")) {
-          const credMatch = /:\/\/([^/\s:@]+):([^/\s@]+)@/.exec(matchText);
+        if (trimmed.includes("://")) {
+          const credMatch = /:\/\/([^/\s:@]+):([^/\s@]+)@/.exec(trimmed);
           if (credMatch) {
             const pass = (credMatch[2] || "").toLowerCase();
             if (
@@ -736,7 +925,11 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         return false;
       }
 
-      function detectRealSecrets(text) {
+      const INLINE_AUTH_HEADER_KEY_RE =
+        /^(?:authorization|proxy-authorization|x-api-key|api-key|x-auth-token)$/i;
+
+      function detectRealSecrets(text, options) {
+        const skipHeaderRegex = Boolean(options && options.skipHeaderRegex);
         const findings = [];
         const lines = text.split(/\r?\n/);
         const patterns = [
@@ -769,19 +962,364 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
             re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqp|amqps):\/\/[^/\s:@]+:[^/\s@]+@[^\s"']+/gi,
           },
         ];
+        const headerRe =
+          /["']?(authorization|proxy-authorization|x-api-key|api-key|x-auth-token)["']?\s*[:=]\s*["']?(?:Bearer\s+|Basic\s+|Token\s+)?([^\s"'`,;}\]]{8,})/gi;
+        const bearerRe = /\bBearer\s+([^\s"'`,;}\]]{8,})/gi;
+
         for (const line of lines) {
+          let lineHasProviderMatch = false;
           for (const pat of patterns) {
             const re = new RegExp(pat.re.source, pat.re.flags);
             let m = re.exec(line);
             while (m !== null) {
               if (!isPlaceholderMatch(m[0], line)) {
                 findings.push(pat.name);
+                lineHasProviderMatch = true;
               }
               m = re.exec(line);
             }
           }
+          if (!skipHeaderRegex && !lineHasProviderMatch) {
+            let lineCaughtHeader = false;
+            const hRe = new RegExp(headerRe.source, headerRe.flags);
+            let hm = hRe.exec(line);
+            while (hm !== null) {
+              const headerName = hm[1] || "Authorization";
+              const rawToken = hm[2] || "";
+              if (!isPlaceholderMatch(rawToken, line)) {
+                findings.push("Inline Auth Header (" + headerName + ")");
+                lineCaughtHeader = true;
+              }
+              hm = hRe.exec(line);
+            }
+            if (!lineCaughtHeader) {
+              const bRe = new RegExp(bearerRe.source, bearerRe.flags);
+              let bm = bRe.exec(line);
+              while (bm !== null) {
+                const rawToken = bm[1] || "";
+                if (!isPlaceholderMatch(rawToken, line)) {
+                  findings.push("Inline Bearer Token");
+                }
+                bm = bRe.exec(line);
+              }
+            }
+          }
         }
         return findings;
+      }
+
+      function detectInlineAuthHeadersInServers(servers) {
+        const findings = [];
+        for (const key of Object.keys(servers)) {
+          const srv = servers[key];
+          if (!srv || srv.disabled === true || srv.enabled === false) {
+            continue;
+          }
+          const headers = srv.headers;
+          if (
+            !headers ||
+            typeof headers !== "object" ||
+            Array.isArray(headers)
+          ) {
+            continue;
+          }
+          for (const headerName of Object.keys(headers)) {
+            const rawValue = headers[headerName];
+            if (
+              typeof rawValue !== "string" ||
+              !INLINE_AUTH_HEADER_KEY_RE.test(headerName)
+            ) {
+              continue;
+            }
+            if (/\$\{[^}]+\}/.test(rawValue)) continue;
+            const credential = rawValue
+              .replace(/^(?:Bearer|Basic|Token)\s+/i, "")
+              .trim();
+            if (
+              credential.length < 8 ||
+              isPlaceholderMatch(credential, headerName + ": " + rawValue)
+            ) {
+              continue;
+            }
+            findings.push(
+              "Inline Auth Header (" + key + " · " + headerName + ")",
+            );
+          }
+        }
+        return findings;
+      }
+
+      const EXACT_SEMVER_RE =
+        /^=?v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+      const NPM_PKG_NAME_RE = /^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/i;
+      const GIT_COMMIT_REF_RE = /#[0-9a-f]{7,40}$/i;
+      const NPX_VALUE_FLAGS = new Set([
+        "-p",
+        "--package",
+        "-c",
+        "--call",
+        "--cache",
+        "--registry",
+        "--userconfig",
+        "--prefix",
+        "-w",
+        "--workspace",
+        "--node-options",
+        "--script-shell",
+        "--loglevel",
+      ]);
+
+      function normalizeExeName(cmd) {
+        const base =
+          String(cmd || "")
+            .trim()
+            .replace(/^["']|["']$/g, "")
+            .split(/[\\/]/)
+            .pop() || "";
+        return base.toLowerCase().replace(/\.(?:cmd|exe|bat|ps1|com)$/, "");
+      }
+
+      function isLocalSpec(spec) {
+        return /^(?:\.{1,2}(?:[\\/]|$)|[\\/]|~[\\/]|[A-Za-z]:[\\/]|file:|https?:\/\/)/i.test(
+          spec,
+        );
+      }
+
+      function isPinnedNpmSpec(rawSpec) {
+        const spec = String(rawSpec || "")
+          .trim()
+          .replace(/^npm:/, "");
+        if (!spec || isLocalSpec(spec) || /\$\{[^}]+\}/.test(spec)) {
+          return true;
+        }
+        if (
+          /^(?:git\+|git:|github:|gitlab:|bitbucket:)/i.test(spec) ||
+          /^[a-z0-9][\w.-]*\/[\w.-]+(?:#.*)?$/i.test(spec)
+        ) {
+          return GIT_COMMIT_REF_RE.test(spec);
+        }
+        const versionAt = spec.startsWith("@")
+          ? spec.indexOf("@", 1)
+          : spec.indexOf("@");
+        const pkgName = versionAt > 0 ? spec.slice(0, versionAt) : spec;
+        const version = versionAt > 0 ? spec.slice(versionAt + 1) : "";
+        if (!NPM_PKG_NAME_RE.test(pkgName)) return true;
+        return Boolean(version && EXACT_SEMVER_RE.test(version));
+      }
+
+      function findUnpinnedRunnerInCommand(serverName, command, args) {
+        if (typeof command !== "string" || !command.trim()) return [];
+        let argv = [
+          command,
+          ...(Array.isArray(args)
+            ? args.filter((a) => typeof a === "string")
+            : []),
+        ];
+        if ((!args || args.length === 0) && /\s/.test(command.trim())) {
+          argv = command.trim().split(/\s+/);
+        }
+        let exe = normalizeExeName(argv[0]);
+        let rest = argv.slice(1);
+        if (exe === "cmd" && rest[0] && /^\/[cCkK]$/.test(rest[0])) {
+          const inner = rest.slice(1);
+          argv =
+            inner.length === 1 && /\s/.test(inner[0] || "")
+              ? inner[0].trim().split(/\s+/)
+              : inner;
+          exe = normalizeExeName(argv[0]);
+          rest = argv.slice(1);
+        }
+
+        let runner = null;
+        let runnerArgs = [];
+        if (
+          exe === "npx" ||
+          (exe === "npm" && (rest[0] === "exec" || rest[0] === "x"))
+        ) {
+          runnerArgs = exe === "npx" ? rest : rest.slice(1);
+          if (
+            runnerArgs.includes("--no") ||
+            runnerArgs.includes("--no-install")
+          ) {
+            return [];
+          }
+          runner = exe === "npx" ? "npx" : "npm " + rest[0];
+        } else if (exe === "bunx" || (exe === "bun" && rest[0] === "x")) {
+          runnerArgs = exe === "bunx" ? rest : rest.slice(1);
+          runner = exe === "bunx" ? "bunx" : "bun x";
+        } else if (exe === "pnpx" || (exe === "pnpm" && rest[0] === "dlx")) {
+          runnerArgs = exe === "pnpx" ? rest : rest.slice(1);
+          runner = exe === "pnpx" ? "pnpx" : "pnpm dlx";
+        } else if (exe === "yarn" && rest[0] === "dlx") {
+          runnerArgs = rest.slice(1);
+          runner = "yarn dlx";
+        }
+
+        if (!runner) return [];
+
+        const specs = [];
+        let replacedPositional = false;
+        let positional = null;
+        for (let i = 0; i < runnerArgs.length; i++) {
+          const arg = runnerArgs[i];
+          if (arg === "--") {
+            positional = runnerArgs[i + 1] ?? null;
+            break;
+          }
+          if (arg.startsWith("-") && arg.length > 1) {
+            const eq = arg.indexOf("=");
+            const flag = eq > 0 ? arg.slice(0, eq) : arg;
+            if (NPX_VALUE_FLAGS.has(flag)) {
+              const value = eq > 0 ? arg.slice(eq + 1) : runnerArgs[++i];
+              if (
+                value !== undefined &&
+                (flag === "-p" || flag === "--package")
+              ) {
+                specs.push(value);
+                replacedPositional = true;
+              }
+            }
+            continue;
+          }
+          positional = arg;
+          break;
+        }
+        if (!replacedPositional && positional !== null) {
+          specs.unshift(positional);
+        }
+
+        const hits = [];
+        for (const spec of specs) {
+          if (!isPinnedNpmSpec(spec)) {
+            hits.push({ serverName, runner, spec });
+          }
+        }
+        return hits;
+      }
+
+      function isMcpDietWrappedEntry(command, args) {
+        if (typeof command !== "string" || !command.trim()) return false;
+        const normCmd = command.trim().replaceAll("\\", "/").toLowerCase();
+        const cmdBase = normCmd
+          .split("/")
+          .pop()
+          .replace(/\.(?:cmd|exe|bat|ps1|com)$/, "");
+        if (cmdBase === "mcp-diet") return true;
+        const runners = new Set([
+          "npx",
+          "npm",
+          "bunx",
+          "bun",
+          "pnpx",
+          "pnpm",
+          "yarn",
+          "node",
+          "cmd",
+        ]);
+        if (!runners.has(cmdBase) || !Array.isArray(args)) return false;
+        for (const rawArg of args) {
+          if (typeof rawArg !== "string") continue;
+          if (rawArg === "--") break;
+          const normArg = rawArg.trim().replaceAll("\\", "/").toLowerCase();
+          if (
+            /^(?:@framy2\/)?mcp-diet(?:@[^\s/]+)?$/.test(normArg) ||
+            /(?:^|\/)(?:@framy2\/)?mcp-diet\/(?:dist|bin|src)\/[^/]+\.(?:js|cjs|mjs|ts)$/.test(
+              normArg,
+            )
+          ) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function buildAutoFixMcpJson(containerKey, servers, readOnly) {
+        const fixedEntries = new Map();
+        let wrappedCount = 0;
+        let alreadyWrappedCount = 0;
+        let httpSkippedCount = 0;
+        let hasActiveServers = false;
+
+        for (const name of Object.keys(servers)) {
+          const srv = servers[name];
+          if (!srv || typeof srv !== "object" || Array.isArray(srv)) continue;
+          if (srv.disabled === true || srv.enabled === false) continue;
+          hasActiveServers = true;
+
+          if (typeof srv.command === "string" && srv.command.trim()) {
+            const cleanArgs = Array.isArray(srv.args)
+              ? srv.args.filter((a) => typeof a === "string")
+              : [];
+            if (isMcpDietWrappedEntry(srv.command, cleanArgs)) {
+              alreadyWrappedCount += 1;
+              const kept = {};
+              if (typeof srv.type === "string") kept.type = srv.type;
+              kept.command = srv.command;
+              if (cleanArgs.length > 0) kept.args = cleanArgs;
+              if (
+                srv.env &&
+                typeof srv.env === "object" &&
+                !Array.isArray(srv.env)
+              ) {
+                kept.env = srv.env;
+              }
+              if (typeof srv.cwd === "string" && srv.cwd) kept.cwd = srv.cwd;
+              fixedEntries.set(name, kept);
+            } else {
+              wrappedCount += 1;
+              const dietArgs = [
+                "-y",
+                "@framy2/mcp-diet@0.2.0",
+                "--max-desc",
+                "160",
+                "--max-result-kb",
+                "512",
+                "--redact-secrets",
+              ];
+              if (readOnly) dietArgs.push("--read-only");
+              dietArgs.push("--", srv.command.trim(), ...cleanArgs);
+
+              const wrapped = {};
+              if (containerKey === "servers") wrapped.type = "stdio";
+              wrapped.command = "npx";
+              wrapped.args = dietArgs;
+              if (
+                srv.env &&
+                typeof srv.env === "object" &&
+                !Array.isArray(srv.env)
+              ) {
+                wrapped.env = srv.env;
+              }
+              if (typeof srv.cwd === "string" && srv.cwd) wrapped.cwd = srv.cwd;
+              fixedEntries.set(name, wrapped);
+            }
+          } else if (typeof srv.url === "string" && srv.url.trim()) {
+            httpSkippedCount += 1;
+            const keptHttp = {};
+            if (typeof srv.type === "string") keptHttp.type = srv.type;
+            keptHttp.url = srv.url;
+            if (
+              srv.headers &&
+              typeof srv.headers === "object" &&
+              !Array.isArray(srv.headers)
+            ) {
+              keptHttp.headers = srv.headers;
+            }
+            fixedEntries.set(name, keptHttp);
+          }
+        }
+
+        if (!hasActiveServers) {
+          return null;
+        }
+        const out = {};
+        out[containerKey] = Object.fromEntries(fixedEntries);
+        return {
+          json: JSON.stringify(out, null, 2) + "\n",
+          wrappedCount,
+          alreadyWrappedCount,
+          httpSkippedCount,
+        };
       }
 
       const CLAUDE_SETTINGS_KEYS = [
@@ -866,9 +1404,13 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         let mcpSchemaTokens = 0;
         let misplacedSettingsMcp = false;
         let disableAllHooksInSettings = false;
+        let parsedJsonServers = null;
+        let parsedContainerKey = "mcpServers";
+        let unpinnedFindings = [];
+        let inlineHeaderFindings = [];
 
         try {
-          const parsed = JSON.parse(mcpRaw);
+          const parsed = parseJsoncSafe(mcpRaw);
           if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
             if (
               "mcpServers" in parsed &&
@@ -880,7 +1422,22 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               disableAllHooksInSettings = true;
             }
             // Claude Code / Cursor use "mcpServers"; VS Code .vscode/mcp.json uses "servers".
-            const servers = parsed.mcpServers ?? parsed.servers ?? {};
+            if (
+              parsed.mcpServers &&
+              typeof parsed.mcpServers === "object" &&
+              !Array.isArray(parsed.mcpServers)
+            ) {
+              parsedContainerKey = "mcpServers";
+              parsedJsonServers = parsed.mcpServers;
+            } else if (
+              parsed.servers &&
+              typeof parsed.servers === "object" &&
+              !Array.isArray(parsed.servers)
+            ) {
+              parsedContainerKey = "servers";
+              parsedJsonServers = parsed.servers;
+            }
+            const servers = parsedJsonServers ?? {};
             if (
               servers &&
               typeof servers === "object" &&
@@ -895,7 +1452,15 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
                 const est = estimateServerHeuristic(key, srv);
                 mcpToolsCount += est.tools;
                 mcpSchemaTokens += est.tokens;
+                if (!misplacedSettingsMcp && srv) {
+                  unpinnedFindings.push(
+                    ...findUnpinnedRunnerInCommand(key, srv.command, srv.args),
+                  );
+                }
               }
+              inlineHeaderFindings.push(
+                ...detectInlineAuthHeadersInServers(servers),
+              );
             }
           }
         } catch {
@@ -904,10 +1469,16 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
             /^\s*\[mcp_servers\.(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_-]+))\]\s*(?:#.*)?$/;
           let currentSrv = null;
           let currentDisabled = false;
+          let currentCommand = "";
+          let currentArgs = [];
           const activeTomlServers = [];
           const commitToml = () => {
             if (currentSrv && !currentDisabled) {
-              activeTomlServers.push(currentSrv);
+              activeTomlServers.push({
+                name: currentSrv,
+                command: currentCommand,
+                args: currentArgs,
+              });
             }
           };
           for (const line of tomlLines) {
@@ -916,12 +1487,16 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               commitToml();
               currentSrv = hm[1] || hm[2] || hm[3];
               currentDisabled = false;
+              currentCommand = "";
+              currentArgs = [];
               continue;
             }
             if (/^\s*\[.*\]\s*(?:#.*)?$/.test(line)) {
               commitToml();
               currentSrv = null;
               currentDisabled = false;
+              currentCommand = "";
+              currentArgs = [];
               continue;
             }
             if (currentSrv) {
@@ -932,15 +1507,33 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               ) {
                 currentDisabled = true;
               }
+              const cmdMatch = /^command\s*=\s*["']([^"']+)["']/.exec(stripped);
+              if (cmdMatch) currentCommand = cmdMatch[1];
+              const argsMatch = /^args\s*=\s*(\[[^\]]*\])/.exec(stripped);
+              if (argsMatch) {
+                try {
+                  const arr = JSON.parse(argsMatch[1]);
+                  if (Array.isArray(arr)) currentArgs = arr;
+                } catch {
+                  // ignore non-JSON TOML args array
+                }
+              }
             }
           }
           commitToml();
           if (activeTomlServers.length > 0) {
             mcpServersCount = activeTomlServers.length;
-            for (const name of activeTomlServers) {
-              const est = estimateServerHeuristic(name, {});
+            for (const item of activeTomlServers) {
+              const est = estimateServerHeuristic(item.name, {});
               mcpToolsCount += est.tools;
               mcpSchemaTokens += est.tokens;
+              unpinnedFindings.push(
+                ...findUnpinnedRunnerInCommand(
+                  item.name,
+                  item.command,
+                  item.args,
+                ),
+              );
             }
           } else {
             mcpSchemaTokens = Math.ceil(
@@ -954,10 +1547,14 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
 
         const secrets = [
           ...detectRealSecrets(guidance),
-          ...detectRealSecrets(mcpRaw),
+          ...detectRealSecrets(mcpRaw, {
+            skipHeaderRegex: parsedJsonServers !== null,
+          }),
+          ...inlineHeaderFindings,
         ];
         const totalFindings =
           secrets.length +
+          unpinnedFindings.length +
           (misplacedSettingsMcp ? 1 : 0) +
           (disableAllHooksInSettings ? 1 : 0);
 
@@ -1005,7 +1602,12 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           rawCapPercent > 85
         )
           grade = "D";
-        else if (totalPerTurn > 8000 || rawCapPercent > 65) grade = "C";
+        else if (
+          unpinnedFindings.length > 0 ||
+          totalPerTurn > 8000 ||
+          rawCapPercent > 65
+        )
+          grade = "C";
         else if (totalPerTurn > 3500 || rawCapPercent > 40) grade = "B";
 
         const badge = document.getElementById("gradeBadge");
@@ -1016,7 +1618,7 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
           const turnCost = (totalPerTurn / 1_000_000) * m.inputPerM;
           const sessCost = (session50 / 1_000_000) * m.inputPerM;
           return `<tr>
-            <td><strong>${m.name}</strong></td>
+            <td><strong>${escapeHtml(m.name)}</strong></td>
             <td class="num">$${m.inputPerM.toFixed(2)}</td>
             <td class="num">$${turnCost.toFixed(4)}</td>
             <td class="num"><strong>$${sessCost.toFixed(2)}</strong></td>
@@ -1027,14 +1629,20 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
         if (totalFindings === 0) {
           alertEl.className = "alert-box ok";
           alertEl.innerHTML =
-            "✅ <strong>CtxWise Shield &amp; Hygiene Pass:</strong> 0 leaked credentials (placeholder keys accurately ignored) and no misplaced <code>mcpServers</code> in <code>.claude/settings.json</code>.";
+            "✅ <strong>CtxWise Shield &amp; Hygiene Pass:</strong> 0 leaked credentials (placeholder / <code>${VAR}</code> refs ignored), pinned MCP runners, and no misplaced <code>mcpServers</code> in <code>.claude/settings.json</code>.";
         } else {
-          alertEl.className = "alert-box warn";
+          const hasHighRisk =
+            secrets.length > 0 ||
+            misplacedSettingsMcp ||
+            disableAllHooksInSettings;
+          alertEl.className = hasHighRisk
+            ? "alert-box warn"
+            : "alert-box caution";
           const items = [];
           if (secrets.length > 0) {
             items.push(
               "Leaked secrets detected: <strong>" +
-                secrets.join(", ") +
+                secrets.map((s) => escapeHtml(s)).join(", ") +
                 "</strong>",
             );
           }
@@ -1048,8 +1656,67 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
               '<code>"disableAllHooks": true</code> in Claude settings hot-reloads mid-session and neutralizes <code>PreToolUse</code> MCP guards (<code>anthropics/claude-code#106225</code>)',
             );
           }
+          if (unpinnedFindings.length > 0) {
+            const unpinnedSummary = unpinnedFindings
+              .map(
+                (hit) =>
+                  "<code>" +
+                  escapeHtml(hit.serverName) +
+                  "</code> (<code>" +
+                  escapeHtml(hit.runner + " " + hit.spec) +
+                  "</code>)",
+              )
+              .join(", ");
+            items.push(
+              "Unpinned MCP exec (missing <code>@x.y.z</code>): " +
+                unpinnedSummary,
+            );
+          }
           alertEl.innerHTML =
-            "🚨 <strong>CtxWise Shield Blocked:</strong> " + items.join(" · ");
+            (hasHighRisk
+              ? "🚨 <strong>CtxWise Shield Blocked:</strong> "
+              : "⚠️ <strong>CtxWise Shield Warning:</strong> ") +
+            items.join(" · ");
+        }
+
+        const autoFixPanel = document.getElementById("autoFixPanel");
+        const autoFixMcpCode = document.getElementById("autoFixMcpCode");
+        const autoFixWireTapCode =
+          document.getElementById("autoFixWireTapCode");
+        const autoFixSummary = document.getElementById("autoFixSummary");
+        const readOnlyChecked = Boolean(
+          document.getElementById("autoFixReadOnly")?.checked,
+        );
+        const autoFix = parsedJsonServers
+          ? buildAutoFixMcpJson(
+              parsedContainerKey,
+              parsedJsonServers,
+              readOnlyChecked,
+            )
+          : null;
+
+        if (autoFix) {
+          latestWrappedMcpJson = autoFix.json;
+          autoFixPanel.style.display = "block";
+          autoFixMcpCode.textContent = autoFix.json;
+          autoFixWireTapCode.textContent = WIRE_TAP_CI_CMD;
+          const summaryParts = [];
+          summaryParts.push(
+            autoFix.wrappedCount + " stdio wrapped with @framy2/mcp-diet@0.2.0",
+          );
+          if (autoFix.alreadyWrappedCount > 0) {
+            summaryParts.push(autoFix.alreadyWrappedCount + " already wrapped");
+          }
+          if (autoFix.httpSkippedCount > 0) {
+            summaryParts.push(autoFix.httpSkippedCount + " HTTP/SSE kept");
+          }
+          autoFixSummary.textContent = summaryParts.join(" · ");
+        } else {
+          latestWrappedMcpJson = "";
+          autoFixPanel.style.display = "none";
+          autoFixMcpCode.textContent = "";
+          autoFixWireTapCode.textContent = "";
+          autoFixSummary.textContent = "";
         }
       }
 
@@ -1065,12 +1732,24 @@ OPENAI_API_KEY="sk-proj-example_placeholder_key_0000000000"
       }
 
       function copyCmd(text, btn) {
-        navigator.clipboard.writeText(text);
+        if (
+          navigator &&
+          navigator.clipboard &&
+          typeof navigator.clipboard.writeText === "function"
+        ) {
+          navigator.clipboard.writeText(text);
+        }
         const prev = btn.textContent;
         btn.textContent = "Copied!";
         setTimeout(() => {
           btn.textContent = prev;
         }, 1400);
+      }
+
+      function copyAutoFix(kind, btn) {
+        const text = kind === "mcp" ? latestWrappedMcpJson : WIRE_TAP_CI_CMD;
+        if (!text) return;
+        copyCmd(text, btn);
       }
 
       loadPreset("heavy", document.querySelector(".preset-btn"));
