@@ -1,0 +1,15 @@
+name: cloudflare-workers-hono
+stack: Cloudflare Workers + Hono + Wrangler
+description: Edge-runtime rules (Web APIs first, typed bindings) and a strict token budget for Workers.
+budget:
+  maxKnownTokens: 2200
+  maxContributorTokens: 800
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Use Web Platform APIs (`fetch`, Web Crypto, Streams); import Node built-ins only when the `nodejs_compat` flag is set in the Wrangler config."
+  - "Type bindings with `Hono<{ Bindings: Env }>` from `wrangler types` and read secrets from `c.env`; never hardcode tokens or commit `.dev.vars`."
+  - "Validate bodies, params, and queries with `@hono/zod-validator` before touching KV, D1, or R2; bind D1 values with `.bind()`, never string concatenation."
+  - "Keep no request state in module-level variables; use `c.executionCtx.waitUntil()` for work that must outlive the response."
+  - "Run `npx wrangler types`, `npx tsc --noEmit`, and the test suite before marking any task complete."
