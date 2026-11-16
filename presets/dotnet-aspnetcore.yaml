@@ -1,0 +1,15 @@
+name: dotnet-aspnetcore
+stack: .NET 9 + ASP.NET Core + EF Core
+description: Lean context budget and async, DI, and EF Core rules for ASP.NET Core services.
+budget:
+  maxKnownTokens: 3000
+  maxContributorTokens: 1100
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Use async APIs end to end and pass the request `CancellationToken` into EF Core and `HttpClient` calls; never block with `.Result`, `.Wait()`, or `GetAwaiter().GetResult()`."
+  - "Keep `DbContext` scoped: never capture it in a singleton or `BackgroundService`; create a scope with `IServiceScopeFactory` there instead."
+  - "Return DTOs, not EF entities; use `AsNoTracking()` and `Select()` projections for read-only queries to avoid over-fetching and N+1 queries."
+  - "Add an EF Core migration for every model change and review its SQL; never edit a migration that has already been applied."
+  - "Run `dotnet build -warnaserror`, `dotnet format --verify-no-changes`, and `dotnet test` before marking any task complete."
