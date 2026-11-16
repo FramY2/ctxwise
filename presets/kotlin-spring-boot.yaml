@@ -1,0 +1,16 @@
+name: kotlin-spring-boot
+stack: Kotlin + Spring Boot 3 + Gradle
+description: Token-efficient constructor-injection and coroutine rules for Kotlin JVM services.
+budget:
+  maxKnownTokens: 3000
+  maxContributorTokens: 1100
+  unknown: warn
+recommendedMcpServers:
+  - github
+  - postgres
+rules:
+  - "Use constructor injection with `val` properties; never use field injection or `lateinit var` for Spring beans."
+  - "Never call blocking JDBC or HTTP clients inside `suspend` functions without `withContext(Dispatchers.IO)`; prefer `WebClient` or R2DBC in coroutine code."
+  - "Validate request DTOs with `@Valid` and Jakarta constraints using `@field:` targets; never return JPA entities from controllers."
+  - "Put `@Transactional` on public service methods called from another bean; a call from inside the same class bypasses the proxy and gets no transaction."
+  - "Run `./gradlew test` and the configured linter (`ktlintCheck` or `detekt`) before marking any task complete."
