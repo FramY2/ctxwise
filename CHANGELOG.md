@@ -5,6 +5,10 @@ and semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `astro-content` stack preset for Astro 5 with Content Layer and TypeScript.
+
 ## [1.3.0] - 2026-11-14
 
 ### Added
