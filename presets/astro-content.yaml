@@ -1,0 +1,16 @@
+name: astro-content
+stack: Astro 5 + Content Layer + TypeScript
+description: Lean guidance for typed content collections and selective hydration.
+budget:
+  maxKnownTokens: 2400
+  maxContributorTokens: 900
+  unknown: warn
+recommendedMcpServers:
+  - playwright
+  - github
+rules:
+  - "Render static content in Astro templates; add `client:*` only to interactive framework components. Prefer `client:visible` for below-the-fold islands."
+  - "Declare build-time collections in `src/content.config.ts` with a Content Layer loader and a Zod schema. Query entries through `getCollection()` or `getEntry()` so metadata stays typed."
+  - "Use `render(entry)` from `astro:content` for Markdown and MDX collection entries, and place the returned `Content` component in the page layout."
+  - "Declare secrets in the environment schema as server-only and import them from `astro:env/server`. Keep public browser variables free of credentials."
+  - "Run `npx astro check` and `npm run build` before submitting content, routing, or component changes."

@@ -156,6 +156,7 @@ Built-in presets include:
 - `nextjs-typescript` (Next.js + TypeScript + Tailwind)
 - `sveltekit` / `sveltekit-typescript` (SvelteKit 2 + Svelte 5 Runes + TypeScript)
 - `python-fastapi` (Python 3.12 + FastAPI + Pydantic v2)
+- `astro-content` (Astro 5 + Content Layer + TypeScript)
 - `rust-cargo` (Rust + Cargo Workspace)
 - `go-microservice` (Go 1.23+ Service)
 - `mcp-server-dev` (Model Context Protocol Server)
