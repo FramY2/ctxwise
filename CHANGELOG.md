@@ -5,9 +5,22 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-19
+
 ### Added
 
-- `astro-content` stack preset for Astro 5 with Content Layer and TypeScript.
+- **6 new community-contributed stack budget presets** (bringing the built-in catalog to 18 presets):
+  - `dotnet-aspnetcore` (.NET 9 + ASP.NET Core + EF Core) — contributed by [@sarankumar1325](https://github.com/sarankumar1325) in [#55](https://github.com/FramY2/ctxwise/pull/55).
+  - `kotlin-spring-boot` (Kotlin + Spring Boot 3 + Gradle) — contributed by [@sarankumar1325](https://github.com/sarankumar1325) in [#56](https://github.com/FramY2/ctxwise/pull/56).
+  - `cloudflare-workers-hono` (Cloudflare Workers + Hono + Wrangler) — contributed by [@sarankumar1325](https://github.com/sarankumar1325) in [#57](https://github.com/FramY2/ctxwise/pull/57).
+  - `astro-content` (Astro 5 + Content Layer + TypeScript) — contributed by [@Golden007-prog](https://github.com/Golden007-prog) in [#58](https://github.com/FramY2/ctxwise/pull/58).
+  - `elixir-phoenix-liveview` (Elixir + Phoenix 1.8 + LiveView) — contributed by [@sarankumar1325](https://github.com/sarankumar1325) in [#59](https://github.com/FramY2/ctxwise/pull/59).
+  - `laravel-inertia` (Laravel 11 + Inertia.js + PHP 8.3) — contributed by [@sarankumar1325](https://github.com/sarankumar1325) in [#60](https://github.com/FramY2/ctxwise/pull/60).
+
+### Changed
+
+- Updated `commander` to `15.1.0` ([#54](https://github.com/FramY2/ctxwise/pull/54)) and `prettier` to `3.10.1` ([#53](https://github.com/FramY2/ctxwise/pull/53)).
+- Bumped `@framy2/ctxwise`, `ctxwise-vscode`, Claude Code / Codex plugin manifests, and web calculator version pills to `v1.4.0`.
 
 ## [1.3.0] - 2026-11-14
 
