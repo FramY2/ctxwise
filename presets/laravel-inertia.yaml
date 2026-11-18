@@ -1,0 +1,15 @@
+name: laravel-inertia
+stack: Laravel 11 + Inertia.js + PHP 8.3
+description: Lean context budget and Eloquent/Form Request conventions for Laravel + Inertia apps.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Validate input in Form Request classes and use only `$request->validated()`; authorize with Policies on the server, never with checks in the page component or with raw `$request->all()`."
+  - "Eager-load relations with `with()` and pass `Inertia::render()` only the props the page needs, as explicit arrays or API Resources; never pass whole models, because props are serialized into the page HTML."
+  - "Share only small global data (auth user, flash messages) from `HandleInertiaRequests::share()`; load page-specific data in the controller."
+  - "Keep controllers thin; move multi-step business logic into single-purpose Action classes and wrap multi-write operations in `DB::transaction()`."
+  - "Run `php artisan test`, `./vendor/bin/pint --test`, and `npm run build` before marking any task complete."
