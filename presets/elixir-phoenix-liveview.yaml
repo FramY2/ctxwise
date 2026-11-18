@@ -1,0 +1,16 @@
+name: elixir-phoenix-liveview
+stack: Elixir + Phoenix 1.8 + LiveView
+description: Lean context budget and context-module, Ecto, and LiveView rules for Phoenix apps.
+budget:
+  maxKnownTokens: 2600
+  maxContributorTokens: 950
+  unknown: warn
+recommendedMcpServers:
+  - postgres
+  - github
+rules:
+  - "Keep data access in context modules and pass the caller's `current_scope` into them; never call `Repo` from LiveViews, controllers, or components."
+  - "Validate every write with an `Ecto.Changeset`, back uniqueness and foreign keys with database constraints (`unique_constraint/3`, `foreign_key_constraint/3`), and preload associations explicitly to avoid N+1 queries."
+  - 'Render large or growing collections with `stream/3` and `phx-update="stream"` on a container with a DOM `id`; keep socket assigns minimal.'
+  - "Subscribe to PubSub and start expensive work only when `connected?(socket)` is true, because `mount/3` also runs for the initial HTTP render."
+  - "Run `mix format --check-formatted`, `mix compile --warnings-as-errors`, and `mix test` before marking any task complete."
