@@ -1,0 +1,16 @@
+name: nestjs-prisma
+stack: NestJS + Prisma + TypeScript
+description: Lean context budget and DI, DTO validation, and Prisma migration rules for NestJS APIs.
+budget:
+  maxKnownTokens: 3000
+  maxContributorTokens: 1100
+  unknown: warn
+recommendedMcpServers:
+  - postgres
+  - github
+rules:
+  - "Validate request bodies with DTO classes and a global `ValidationPipe` (`whitelist: true`, `forbidNonWhitelisted: true`); return explicit response DTOs instead of raw Prisma models."
+  - "Keep controllers thin: put business logic and `PrismaService` calls in injectable providers, and wrap multi-write operations in `prisma.$transaction()`."
+  - "Use explicit `select` or bounded `include` queries to avoid over-fetching, and add a migration with `npx prisma migrate dev` for every schema change instead of editing applied migrations."
+  - "Run `npx prisma generate` after changing `schema.prisma`, and never commit `.env` files or database URLs."
+  - "Run `npm run lint`, `npm test`, and `npm run build` before marking any task complete."
