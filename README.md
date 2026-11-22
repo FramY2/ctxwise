@@ -155,6 +155,8 @@ Built-in presets include:
 
 - `nextjs-typescript` (Next.js + TypeScript + Tailwind)
 - `sveltekit` / `sveltekit-typescript` (SvelteKit 2 + Svelte 5 Runes + TypeScript)
+- `angular-standalone` (Angular 19 + Standalone Components + Signals)
+- `nestjs-prisma` (NestJS + Prisma + TypeScript)
 - `python-fastapi` (Python 3.12 + FastAPI + Pydantic v2)
 - `astro-content` (Astro 5 + Content Layer + TypeScript)
 - `cloudflare-workers-hono` (Cloudflare Workers + Hono + Wrangler)
@@ -162,11 +164,12 @@ Built-in presets include:
 - `kotlin-spring-boot` (Kotlin + Spring Boot 3 + Gradle)
 - `elixir-phoenix-liveview` (Elixir + Phoenix 1.8 + LiveView)
 - `laravel-inertia` (Laravel 11 + Inertia.js + PHP 8.3)
+- `swift-swiftui` (Swift 6 + SwiftUI + SwiftData)
 - `rust-cargo` (Rust + Cargo Workspace)
 - `go-microservice` (Go 1.23+ Service)
 - `mcp-server-dev` (Model Context Protocol Server)
 - `monorepo-turbo` (Turborepo / pnpm Monorepo)
-- plus `django-ninja`, `flutter-riverpod`, `rails-hotwire`, `react-native-expo`, and `terraform-aws` (`npx @framy2/ctxwise preset` lists all 18 built-in presets).
+- plus `django-ninja`, `flutter-riverpod`, `rails-hotwire`, `react-native-expo`, and `terraform-aws` (`npx @framy2/ctxwise preset` lists all 21 built-in presets).
 
 ### 5. 🔒 Multi-Agent Capability Lockfiles & Fail-Closed Drift Policy (`lock` & `drift`)
 

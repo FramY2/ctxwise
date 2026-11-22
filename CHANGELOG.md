@@ -5,6 +5,20 @@ and semantic versioning.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-22
+
+### Added
+
+- **3 new community-contributed stack budget presets** (bringing the built-in catalog to 21 presets):
+  - `nestjs-prisma` (NestJS + Prisma + TypeScript) — contributed by [@emreocell](https://github.com/emreocell) in [#65](https://github.com/FramY2/ctxwise/pull/65).
+  - `angular-standalone` (Angular 19 + Standalone Components + Signals) — contributed by [@emreocell](https://github.com/emreocell) in [#66](https://github.com/FramY2/ctxwise/pull/66).
+  - `swift-swiftui` (Swift 6 + SwiftUI + SwiftData) — contributed by [@jamesyshd19-cmyk](https://github.com/jamesyshd19-cmyk) in [#67](https://github.com/FramY2/ctxwise/pull/67).
+
+### Changed
+
+- Updated `vitest` and `@vitest/coverage-v8` to `5.1.1` ([#68](https://github.com/FramY2/ctxwise/pull/68)).
+- Bumped `@framy2/ctxwise`, `ctxwise-vscode`, Claude Code / Codex plugin manifests, and web calculator version pills to `v1.5.0`.
+
 ## [1.4.0] - 2026-11-19
 
 ### Added

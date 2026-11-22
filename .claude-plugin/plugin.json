@@ -1,6 +1,6 @@
 {
   "name": "ctxwise",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "CtxWise: local-first AI context firewall, MCP schema tree-shaker, budget guard, drift detection, and usage receipts for Claude Code, OpenAI Codex, and Cursor.",
   "author": {
     "name": "Christian Frascogna",

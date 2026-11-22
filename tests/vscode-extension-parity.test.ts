@@ -137,7 +137,7 @@ describe("ctxwise-vscode analyzer parity (v1.3.0)", () => {
     const pkg = JSON.parse(
       readFileSync(join(vscodeDir, "package.json"), "utf8"),
     ) as Record<string, unknown>;
-    expect(pkg["version"]).toBe("1.4.0");
+    expect(pkg["version"]).toBe("1.5.0");
     expect(pkg["icon"]).toBe("icon.png");
     expect(pkg["license"]).toBe("Apache-2.0");
     expect(pkg["repository"]).toBeTruthy();
@@ -174,7 +174,7 @@ describe("ctxwise-vscode analyzer parity (v1.3.0)", () => {
   });
 });
 
-describe("docs/index.html v1.4.0 Browser Shield & Auto-Fix parity", () => {
+describe("docs/index.html v1.5.0 Browser Shield & Auto-Fix parity", () => {
   const repoRoot = join(vscodeDir, "..", "..");
   const htmlPath = join(repoRoot, "docs", "index.html");
 
@@ -255,12 +255,12 @@ describe("docs/index.html v1.4.0 Browser Shield & Auto-Fix parity", () => {
     return { html, els, sandbox };
   }
 
-  it("displays v1.4.0, mcp-diet v0.2.0, and agent-wire-tap v0.3.0 versions", () => {
+  it("displays v1.5.0, mcp-diet v0.2.0, and agent-wire-tap v0.3.0 versions", () => {
     const html = readFileSync(htmlPath, "utf8");
-    expect(html).toContain("v1.4.0");
+    expect(html).toContain("v1.5.0");
     expect(html).toContain("v0.2.0");
     expect(html).toContain("v0.3.0");
-    expect(html).not.toContain("v1.3.0");
+    expect(html).not.toContain("v1.4.0");
   });
 
   it("flags unpinned npx -y runners and inline auth headers while allowing pinned packages and env refs", async () => {
