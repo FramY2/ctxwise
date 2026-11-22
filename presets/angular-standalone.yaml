@@ -1,0 +1,16 @@
+name: angular-standalone
+stack: Angular 19 + Standalone Components + Signals
+description: Lean context budget and Signals, standalone component, and reactive cleanup rules for modern Angular apps.
+budget:
+  maxKnownTokens: 2800
+  maxContributorTokens: 1000
+  unknown: warn
+recommendedMcpServers:
+  - playwright
+  - github
+rules:
+  - "Author standalone components with `ChangeDetectionStrategy.OnPush` and signal-based APIs (`input()`, `output()`, `computed()`); do not add new `NgModule`s."
+  - "Use built-in template control flow (`@if`, `@for` with `track`, `@switch`) instead of the legacy `*ngIf` and `*ngFor` directives."
+  - "Prefer `inject()` over constructor injection, and clean up RxJS subscriptions with the `async` pipe, `toSignal()`, or `takeUntilDestroyed()`."
+  - "Keep component state in signals and derive values with `computed()`; update state with `set()` or `update()`, never by mutating the signal's value."
+  - "Run `npx ng test --watch=false` and `npx ng build` before marking any task complete."
