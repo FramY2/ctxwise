@@ -1,0 +1,15 @@
+name: swift-swiftui
+stack: Swift 6 + SwiftUI + SwiftData
+description: Lean context budget and guidance for Observation, actor isolation, and SwiftData in Apple platform apps.
+budget:
+  maxKnownTokens: 2600
+  maxContributorTokens: 950
+  unknown: warn
+recommendedMcpServers:
+  - github
+rules:
+  - "Own `@Observable` models with `@State`. Provide shared models with `.environment(model)`, read them with `@Environment(Model.self)`, and use `@Bindable` for bindings."
+  - "Isolate UI state on `@MainActor`, pass `Sendable` values between actors, and check cancellation before applying results from `.task(id:)`."
+  - "Use `@Query` in views and a `@ModelActor` with the same `ModelContainer` for background writes. Save new models before reading `persistentModelID`, pass the ID, and refetch in the receiving context."
+  - "Set `ModelConfiguration(isStoredInMemoryOnly: true)` for SwiftData unit tests so they do not write to the app's store."
+  - "Verify in Swift 6 language mode with `swift test` for packages or `xcodebuild test` for the app scheme, and resolve concurrency diagnostics."
