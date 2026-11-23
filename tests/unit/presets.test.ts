@@ -25,6 +25,35 @@ describe("Community Stack Presets", () => {
     expect(names).toContain("mcp-server-dev");
   });
 
+  it("applies the Java Spring Boot preset with its budget and guidance", async () => {
+    await withTempDir("ctxwise-spring-boot-", async (root) => {
+      const applied = await applyPresetToProject({
+        presetName: "spring-boot-java",
+        projectRoot: root,
+        writeGuidance: true,
+      });
+
+      expect(applied.preset.stack).toBe("Java 21 + Spring Boot 3 + JPA");
+      expect(applied.preset.rules).toHaveLength(5);
+      expect(applied.preset.budget).toEqual({
+        maxKnownTokens: 3000,
+        maxContributorTokens: 1100,
+        unknown: "warn",
+      });
+      expect(await readFile(applied.budgetPath, "utf8")).toContain(
+        "maxKnownTokens: 3000",
+      );
+      expect(applied.guidancePaths).toHaveLength(2);
+      for (const guidancePath of applied.guidancePaths) {
+        const guidance = await readFile(guidancePath, "utf8");
+        expect(guidance).toContain("Java 21 + Spring Boot 3 + JPA");
+        for (const rule of applied.preset.rules) {
+          expect(guidance).toContain(rule);
+        }
+      }
+    });
+  });
+
   it("applies a preset to a project and optionally generates AGENTS.md and CLAUDE.md", async () => {
     await withTempDir("ctxwise-presets-", async (root) => {
       const applied = await applyPresetToProject({

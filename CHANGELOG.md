@@ -5,6 +5,10 @@ and semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `spring-boot-java` stack budget preset for Java 21, Spring Boot 3, and JPA.
+
 ## [1.5.0] - 2026-11-22
 
 ### Added
