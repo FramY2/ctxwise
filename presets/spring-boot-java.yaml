@@ -1,0 +1,16 @@
+name: spring-boot-java
+stack: Java 21 + Spring Boot 3 + JPA
+description: Lean context budget and DTO, transaction, and migration rules for Java Spring services.
+budget:
+  maxKnownTokens: 3000
+  maxContributorTokens: 1100
+  unknown: warn
+recommendedMcpServers:
+  - postgres
+  - github
+rules:
+  - "Use Java `record` DTOs with Jakarta Bean Validation and `@Valid` at HTTP boundaries; do not return JPA entities from controllers."
+  - "Inject required dependencies through constructors into `final` fields; keep business logic in services rather than controllers."
+  - "Keep JPA access inside service transactions; with Spring's default proxies, self-invocation does not activate `@Transactional`. Map entities to DTOs before leaving the transaction."
+  - "Version schema changes with Flyway or Liquibase; do not use `spring.jpa.hibernate.ddl-auto=update` in production."
+  - "Run the project's Maven or Gradle wrapper tests (`./mvnw test` or `./gradlew test`) before completing a change."
