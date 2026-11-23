@@ -163,6 +163,7 @@ Built-in presets include:
 - `cloudflare-workers-hono` (Cloudflare Workers + Hono + Wrangler)
 - `dotnet-aspnetcore` (.NET 9 + ASP.NET Core + EF Core)
 - `kotlin-spring-boot` (Kotlin + Spring Boot 3 + Gradle)
+- `spring-boot-java` (Java 21 + Spring Boot 3 + JPA)
 - `elixir-phoenix-liveview` (Elixir + Phoenix 1.8 + LiveView)
 - `laravel-inertia` (Laravel 11 + Inertia.js + PHP 8.3)
 - `swift-swiftui` (Swift 6 + SwiftUI + SwiftData)
@@ -170,7 +171,7 @@ Built-in presets include:
 - `go-microservice` (Go 1.23+ Service)
 - `mcp-server-dev` (Model Context Protocol Server)
 - `monorepo-turbo` (Turborepo / pnpm Monorepo)
-- plus `django-ninja`, `flutter-riverpod`, `rails-hotwire`, `react-native-expo`, and `terraform-aws` (`npx @framy2/ctxwise preset` lists all built-in presets).
+- plus `django-ninja`, `flutter-riverpod`, `rails-hotwire`, `react-native-expo`, and `terraform-aws` (`npx @framy2/ctxwise preset` lists all 23 built-in presets).
 
 ### 5. 🔒 Multi-Agent Capability Lockfiles & Fail-Closed Drift Policy (`lock` & `drift`)
 
@@ -268,12 +269,10 @@ New to profiles? Follow the [lean-profile walkthrough](docs/tutorials/lean-profi
 
 Want to make your first open-source contribution to an AI developer tool? Adding a new stack preset in [`presets/`](presets/) takes **less than 5 minutes** (just 1 YAML file, validated automatically by `npm test`):
 
-- 🟢 [**Issue #23**](https://github.com/FramY2/ctxwise/issues/23) — Add `sveltekit-typescript` preset (SvelteKit 2 + Svelte 5 Runes)
-- 🟢 [**Issue #24**](https://github.com/FramY2/ctxwise/issues/24) — Add `astro-content` preset (Astro 5 + Content Layer)
-- 🟢 [**Issue #25**](https://github.com/FramY2/ctxwise/issues/25) — Add `django-ninja` preset (Python + Django 5 + Django Ninja)
-- 🟢 [**Issue #26**](https://github.com/FramY2/ctxwise/issues/26) — Add `laravel-inertia` preset (Laravel 11 + Inertia.js + PHP 8.3)
-- 🟢 [**Issue #27**](https://github.com/FramY2/ctxwise/issues/27) — Add `kotlin-spring-boot` preset (Kotlin + Spring Boot 3)
-- 🟢 [**Issue #28**](https://github.com/FramY2/ctxwise/issues/28) — Add `cloudflare-workers-hono` preset (Cloudflare Workers + Hono)
+- 🟢 [**Issue #61**](https://github.com/FramY2/ctxwise/issues/61) — Add `nuxt-vue` preset (Nuxt 3 + Vue 3 + TypeScript)
+- 🟢 [**Issue #69**](https://github.com/FramY2/ctxwise/issues/69) — Add `android-compose` preset (Kotlin + Jetpack Compose + Hilt)
+- 🟢 [**Issue #71**](https://github.com/FramY2/ctxwise/issues/71) — Add `tauri-rust` preset (Tauri v2 + Rust + TypeScript)
+- 📋 Browse all open [**`good first issue` presets**](https://github.com/FramY2/ctxwise/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) or propose your own stack!
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the 3-step guide!
 
