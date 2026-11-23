@@ -5,6 +5,10 @@ and semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- `react-router-v7` stack budget preset for React Router v7 Framework Mode with TypeScript and Vite.
+
 ## [1.5.0] - 2026-11-22
 
 ### Added
