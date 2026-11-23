@@ -1,0 +1,16 @@
+name: react-router-v7
+stack: React Router v7 + TypeScript + Vite
+description: Startup budget and route module guidance for React Router v7 Framework Mode.
+budget:
+  maxKnownTokens: 2600
+  maxContributorTokens: 950
+  unknown: warn
+recommendedMcpServers:
+  - playwright
+  - github
+rules:
+  - "Export `loader` for route data and `action` for mutations. Submit with `<Form>` for navigation or `fetcher.Form` for an in-place update, and let React Router revalidate loader data."
+  - "Import `Route` from the generated `./+types/<route-file>` module for `Route.LoaderArgs`, `Route.ActionArgs`, and `Route.ComponentProps`."
+  - "Keep database clients, session helpers, and secrets in `.server.ts` modules. Call those helpers from server loaders and actions."
+  - "Validate action input at the server boundary. Return field errors with `data(errors, { status: 400 })` and use the route's `ErrorBoundary` for thrown errors."
+  - "Run `npx react-router typegen` before the TypeScript check, then run the project's tests and production build."
